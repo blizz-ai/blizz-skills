@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "blizz": {
+      "type": "http",
+      "url": "${BLIZZ_MCP_URL:-https://blizz.id/mcp}"
+    }
+  }
+}

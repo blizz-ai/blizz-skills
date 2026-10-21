@@ -1,0 +1,1121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<title>Blizz · Wallet Analyst</title>
+<meta name="description" content="Find Solana wallets worth copying and assess them with the Blizz API. A single-file demo: no backend, no build.">
+<style>
+:root {
+  --bg: #ffffff; --ink: #111214; --ink2: #3a3b40; --ink3: #6c6e76; --ink4: #9c9ea5;
+  --line: #e3e3e7; --hair: #efeff2; --surface: #f6f6f8; --sel: #ebebef;
+  --pos: #0b9a5a; --neg: #d5383e; --warn: #c08400; --gold: #c9a227; --onInk: #ffffff;
+  --shadow: rgba(0, 0, 0, .14); --overlay: rgba(10, 10, 14, .38);
+  --posBg: rgba(11, 154, 90, .10); --negBg: rgba(213, 56, 62, .10); --warnBg: rgba(192, 132, 0, .12);
+  --r: 8px;
+}
+:root[data-theme="dark"] {
+  --bg: #0d0d10; --ink: #f1f1f4; --ink2: #cfd0d5; --ink3: #9a9ca4; --ink4: #6b6d75;
+  --line: #26272c; --hair: #1b1c20; --surface: #16171a; --sel: #202126;
+  --pos: #34c48b; --neg: #ff6b71; --warn: #e4aa2c; --gold: #e2be4f; --onInk: #0d0d10;
+  --shadow: rgba(0, 0, 0, .55); --overlay: rgba(0, 0, 0, .6);
+  --posBg: rgba(52, 196, 139, .12); --negBg: rgba(255, 107, 113, .12); --warnBg: rgba(228, 170, 44, .14);
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--ink); }
+body { font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; }
+button, input, select { font: inherit; color: inherit; }
+a { color: inherit; }
+.num { font-variant-numeric: tabular-nums; }
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px; }
+.muted { color: var(--ink3); }
+.faint { color: var(--ink4); }
+.pos { color: var(--pos); }
+.neg { color: var(--neg); }
+.warn { color: var(--warn); }
+.kicker { font-size: 11px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; color: var(--ink3); }
+.hidden { display: none !important; }
+
+/* top bar */
+.top { position: sticky; top: 0; z-index: 20; height: 60px; display: flex; align-items: center; gap: 14px; padding: 0 20px; background: var(--bg); border-bottom: 1px solid var(--line); }
+.brand { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+.brand b { font-size: 15px; font-weight: 500; letter-spacing: .14em; }
+.brand span { font-size: 13px; color: var(--ink3); }
+.spacer { flex: 1; }
+.pill { height: 24px; padding: 0 9px; border-radius: 12px; border: 1px solid var(--line); display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ink3); white-space: nowrap; }
+.pill .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ink4); }
+.pill.live .dot { background: var(--pos); }
+.pill.demo .dot { background: var(--gold); }
+.iconbtn { width: 34px; height: 34px; border-radius: var(--r); border: 1px solid transparent; background: transparent; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; color: var(--ink3); }
+.iconbtn:hover { background: var(--surface); color: var(--ink); }
+.toplink { font-size: 13px; color: var(--ink3); text-decoration: none; }
+.toplink:hover { color: var(--ink); }
+
+.banner { margin: 14px 20px 0; padding: 11px 14px; border: 1px solid var(--line); border-left: 3px solid var(--gold); border-radius: var(--r); background: var(--surface); display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 13px; color: var(--ink2); }
+
+main { max-width: 1240px; margin: 0 auto; padding: 18px 20px 60px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; }
+.card { border: 1px solid var(--line); border-radius: 12px; background: var(--bg); min-width: 0; }
+.card-h { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--hair); flex-wrap: wrap; }
+.card-b { padding: 16px; }
+
+/* buttons and fields */
+.btn { height: 36px; padding: 0 16px; border-radius: var(--r); border: 1px solid var(--line); background: var(--bg); cursor: pointer; font-size: 13px; font-weight: 500; color: var(--ink2); display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
+.btn:hover { border-color: var(--ink3); color: var(--ink); }
+.btn.primary { background: var(--ink); color: var(--onInk); border-color: var(--ink); }
+.btn.primary:hover { opacity: .88; }
+.btn.danger { color: var(--neg); }
+.btn:disabled { opacity: .4; cursor: default; }
+.chip { height: 30px; padding: 0 12px; border-radius: 15px; border: 1px solid var(--line); background: transparent; cursor: pointer; font-size: 12.5px; color: var(--ink2); }
+.chip:hover { border-color: var(--ink3); }
+.chip.on { border-color: var(--gold); color: var(--ink); background: var(--surface); }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; }
+.seg button { height: 30px; padding: 0 11px; border: none; background: transparent; cursor: pointer; font-size: 12.5px; color: var(--ink3); }
+.seg button.on { background: var(--sel); color: var(--ink); font-weight: 500; }
+label.f { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+label.f > span { font-size: 11.5px; font-weight: 500; letter-spacing: .04em; text-transform: uppercase; color: var(--ink3); }
+input.in, select.in { height: 36px; border: 1px solid var(--line); border-radius: var(--r); background: var(--bg); padding: 0 10px; min-width: 0; width: 100%; }
+input.in:focus, select.in:focus { outline: none; border-color: var(--ink3); }
+input.in.bad { border-color: var(--neg); }
+.grid-f { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; }
+.row { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
+.presets { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+.preset-note { font-size: 12.5px; color: var(--ink3); margin: -6px 0 14px; min-height: 18px; }
+
+/* table */
+.tbl-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; }
+th { text-align: left; font-size: 11px; font-weight: 500; letter-spacing: .06em; text-transform: uppercase; color: var(--ink3); padding: 10px 12px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+td { padding: 11px 12px; border-bottom: 1px solid var(--hair); white-space: nowrap; }
+th.r, td.r { text-align: right; }
+tbody tr.click { cursor: pointer; }
+tbody tr.click:hover { background: var(--surface); }
+tbody tr.sel { background: var(--sel); }
+.empty { padding: 40px 16px; text-align: center; color: var(--ink3); }
+.copyaddr { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+.copyaddr:hover { color: var(--ink); }
+.tag { display: inline-flex; align-items: center; height: 20px; padding: 0 7px; border-radius: 4px; font-size: 11px; font-weight: 500; letter-spacing: .03em; border: 1px solid var(--line); color: var(--ink2); white-space: nowrap; }
+.tag.gold { border-color: var(--gold); color: var(--gold); }
+
+/* drawer */
+.scrim { position: fixed; inset: 0; background: var(--overlay); z-index: 40; }
+.drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(620px, 100vw); background: var(--bg); border-left: 1px solid var(--line); z-index: 41; display: flex; flex-direction: column; box-shadow: -12px 0 32px var(--shadow); }
+.drawer-h { padding: 16px 18px 0; border-bottom: 1px solid var(--line); }
+.drawer-b { flex: 1; overflow-y: auto; padding: 18px; }
+.tabs { display: flex; gap: 22px; margin-top: 14px; }
+.tabs button { background: none; border: none; padding: 10px 0; cursor: pointer; color: var(--ink3); border-bottom: 2px solid transparent; font-size: 13.5px; }
+.tabs button.on { color: var(--ink); font-weight: 500; border-bottom-color: var(--gold); }
+.links { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12.5px; margin-top: 8px; }
+.links a { color: var(--ink3); text-decoration: none; display: inline-flex; align-items: center; gap: 4px; }
+.links a:hover { color: var(--ink); }
+
+.verdict { border-radius: 10px; padding: 16px; border: 1px solid var(--line); margin-bottom: 16px; }
+.verdict.good { background: var(--posBg); border-color: transparent; }
+.verdict.mid { background: var(--warnBg); border-color: transparent; }
+.verdict.bad { background: var(--negBg); border-color: transparent; }
+.verdict h3 { margin: 6px 0 0; font-size: 17px; font-weight: 500; letter-spacing: -.01em; line-height: 1.35; }
+.gates { border-top: 1px solid var(--line); }
+.gate { display: grid; grid-template-columns: 26px 1fr; gap: 10px; padding: 12px 0; border-bottom: 1px solid var(--hair); }
+.mark { width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; }
+.mark.pass { background: var(--posBg); color: var(--pos); }
+.mark.fail { background: var(--negBg); color: var(--neg); }
+.mark.unknown { background: var(--sel); color: var(--ink3); }
+.gate .t { font-weight: 500; }
+.gate .why { color: var(--ink2); font-size: 13px; margin-top: 2px; }
+.vals { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 7px; }
+.val { font-size: 11.5px; padding: 2px 7px; border-radius: 4px; background: var(--surface); color: var(--ink3); }
+.val b { color: var(--ink2); font-weight: 500; }
+.metrics { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 10px; overflow: hidden; margin-top: 16px; }
+.metric { background: var(--bg); padding: 10px 12px; }
+.metric .k { font-size: 11px; color: var(--ink3); }
+.metric .v { font-size: 15px; margin-top: 2px; }
+.notes { margin: 14px 0 0; padding-left: 18px; color: var(--ink2); font-size: 13px; }
+.actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 18px; }
+
+/* calendar */
+.cal-h { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.cal .dow { font-size: 11px; color: var(--ink4); text-align: center; padding-bottom: 4px; }
+.cell { min-height: 52px; border-radius: 6px; padding: 5px 6px; background: var(--surface); display: flex; flex-direction: column; justify-content: space-between; }
+.cell.blank { background: transparent; }
+.cell .d { font-size: 11px; color: var(--ink4); }
+.cell .p { font-size: 11.5px; text-align: right; }
+.cal-sum { display: flex; gap: 22px; margin-top: 12px; flex-wrap: wrap; font-size: 13px; }
+
+/* dialogs */
+dialog { border: 1px solid var(--line); border-radius: 12px; padding: 0; background: var(--bg); color: var(--ink); width: min(560px, calc(100vw - 24px)); max-height: calc(100vh - 24px); overflow-y: auto; box-shadow: 0 20px 48px var(--shadow); }
+dialog::backdrop { background: var(--overlay); }
+.dlg { padding: 22px 24px; display: flex; flex-direction: column; gap: 16px; }
+.dlg h2 { margin: 0; font-size: 19px; font-weight: 500; letter-spacing: -.01em; }
+.dlg p { margin: 0; color: var(--ink2); font-size: 13.5px; }
+.dlg-f { display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; padding-top: 4px; }
+.check { display: flex; align-items: flex-start; gap: 9px; font-size: 13.5px; cursor: pointer; }
+.check input { margin-top: 2px; }
+.box { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
+.tp-row { display: grid; grid-template-columns: 110px 1fr 1fr 34px; gap: 8px; align-items: center; }
+.summary { background: var(--surface); border-radius: 10px; padding: 12px 14px; font-size: 13.5px; color: var(--ink2); }
+.err { color: var(--neg); font-size: 13px; }
+.ok { color: var(--pos); font-size: 13px; }
+
+.toast { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); background: var(--ink); color: var(--onInk); padding: 10px 16px; border-radius: 10px; font-size: 13px; z-index: 60; max-width: calc(100vw - 32px); box-shadow: 0 8px 24px var(--shadow); }
+.skel { height: 14px; border-radius: 4px; background: linear-gradient(90deg, var(--surface), var(--sel), var(--surface)); background-size: 200% 100%; animation: sk 1.2s linear infinite; }
+@keyframes sk { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+
+@media (max-width: 720px) {
+  .top { padding: 0 12px; gap: 8px; }
+  .brand span, .toplink { display: none; }
+  main { padding: 12px 12px 48px; }
+  .banner { margin: 10px 12px 0; }
+  .col-opt { display: none; }
+  .tp-row { grid-template-columns: 90px 1fr 1fr 34px; }
+  .grid-f { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .row label.f { width: auto !important; flex: 1 1 120px; }
+  .card-b { padding: 12px; }
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="https://blizz.id/ai" target="_blank" rel="noopener" id="brand"></a>
+  <div class="spacer"></div>
+  <span class="pill" id="modePill"><span class="dot"></span><span id="modeText">Demo</span></span>
+  <a class="toplink" href="https://github.com/blizz-ai/blizz-skills" target="_blank" rel="noopener">GitHub</a>
+  <button class="iconbtn" id="themeBtn" title="Theme" aria-label="Toggle theme"></button>
+  <button class="btn" id="settingsBtn" style="height:32px;padding:0 12px">API key</button>
+</header>
+<div class="banner hidden" id="demoBanner"></div>
+<main>
+  <section class="card">
+    <div class="card-h">
+      <div>
+        <div class="kicker">Find wallets</div>
+        <div class="muted" style="font-size:13px;margin-top:4px">Wallet statistics are rebuilt hourly from on-chain swaps. Pick a preset or set filters.</div>
+      </div>
+    </div>
+    <div class="card-b">
+      <div class="presets" id="presets"></div>
+      <div class="preset-note" id="presetNote"></div>
+      <form id="searchForm" autocomplete="off">
+        <div class="grid-f" id="filterFields"></div>
+        <div class="row" style="margin-top:16px">
+          <label class="f" style="width:130px"><span>Period</span><select class="in" id="period"></select></label>
+          <label class="f" style="width:210px"><span>Sort</span><select class="in" id="sort"></select></label>
+          <label class="f" style="width:100px"><span>Show</span><select class="in" id="limit"></select></label>
+          <div class="spacer"></div>
+          <button type="button" class="btn" id="clearBtn">Clear</button>
+          <button type="submit" class="btn primary" id="searchBtn">Search</button>
+        </div>
+        <div class="err" id="searchErr" style="margin-top:12px"></div>
+      </form>
+    </div>
+  </section>
+  <section class="card">
+    <div class="card-h">
+      <div class="kicker" id="resultsTitle">Results</div>
+      <div class="muted" style="font-size:12.5px" id="resultsMeta"></div>
+    </div>
+    <div class="tbl-wrap" id="results"><div class="empty">Run a search to see wallets.</div></div>
+  </section>
+</main>
+
+<div class="scrim hidden" id="scrim"></div>
+<aside class="drawer hidden" id="drawer" aria-label="Wallet"></aside>
+
+<dialog id="settingsDlg"></dialog>
+<dialog id="copyDlg"></dialog>
+<div class="toast hidden" id="toast"></div>
+
+<script>
+'use strict';
+
+// ——— storage, settings, API ———
+
+const STORE = { key: 'blizz.demo.key', base: 'blizz.demo.base', theme: 'blizz.demo.theme' };
+
+/** API base: the site itself when this page is served by Blizz, else production. */
+function defaultBase() {
+  const h = location.hostname;
+  const ours = (d) => h === d || h.endsWith('.' + d);
+  return ours('blizz.id') || ours('jizzus.xyz') ? location.origin : 'https://blizz.id';
+}
+
+const S = {
+  base: localStorage.getItem(STORE.base) || defaultBase(),
+  key: sessionStorage.getItem(STORE.key) || localStorage.getItem(STORE.key) || '',
+};
+const isDemo = () => !S.key;
+
+class ApiError extends Error {
+  constructor(status, code, description, field, retryAfter) {
+    super(description || code);
+    this.status = status; this.code = code; this.description = description || ''; this.field = field || null; this.retryAfter = retryAfter || null;
+  }
+}
+
+/** Blizz REST v1 call. The key goes only into the Authorization header. */
+async function api(method, path, body) {
+  const headers = { Authorization: 'Bearer ' + S.key };
+  if (body !== undefined) headers['Content-Type'] = 'application/json';
+  let res;
+  try {
+    res = await fetch(S.base.replace(/\/+$/, '') + '/api/v1' + path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
+  } catch (e) {
+    throw new ApiError(0, 'network', 'network error');
+  }
+  const text = await res.text();
+  let data = null;
+  try { data = text ? JSON.parse(text) : null; } catch (e) { data = null; }
+  if (!res.ok) {
+    const retry = Number(res.headers.get('Retry-After')) || null;
+    throw new ApiError(res.status, (data && data.error) || 'http_' + res.status, (data && data.error_description) || res.statusText, data && data.field, retry);
+  }
+  return data;
+}
+
+/** A failure in words a person can act on. `need` names the access this call requires. */
+function explain(e, need) {
+  if (!(e instanceof ApiError)) return String(e && e.message || e);
+  switch (e.status) {
+    case 0: return 'Could not reach ' + S.base + ' — check the API address in Settings (network or CORS).';
+    case 401: return 'The API key is missing, wrong or revoked. Paste a valid key in Settings.';
+    case 403: return 'This key has no access for that (' + e.description + ').' + (need ? ' Create a key with “' + need + '” on Blizz → API.' : '');
+    case 429: return 'Rate limited: ' + e.description + '. Retry in ' + (e.retryAfter || 1) + ' s.';
+    case 503: return 'Wallet data is busy or unavailable right now (' + e.description + '). Retry in a moment.';
+    default: return e.code + ': ' + e.description;
+  }
+}
+
+// ——— DOM helpers (text only, never HTML from data) ———
+
+function h(tag, props, ...kids) {
+  const el = document.createElement(tag);
+  if (props) {
+    for (const [k, v] of Object.entries(props)) {
+      if (v === null || v === undefined || v === false) continue;
+      if (k === 'class') el.className = v;
+      else if (k === 'style') el.style.cssText = v;
+      else if (k.startsWith('on') && typeof v === 'function') el.addEventListener(k.slice(2), v);
+      else if (k === 'value' || k === 'checked' || k === 'disabled' || k === 'selected') el[k] = v;
+      else el.setAttribute(k, v === true ? '' : String(v));
+    }
+  }
+  for (const kid of kids.flat(Infinity)) {
+    if (kid === null || kid === undefined || kid === false) continue;
+    el.append(kid instanceof Node ? kid : String(kid));
+  }
+  return el;
+}
+const $ = (id) => document.getElementById(id);
+const clear = (el) => { while (el.firstChild) el.removeChild(el.firstChild); return el; };
+
+const ICONS = {
+  copy: 'M5.5 5.5h7v7h-7zM3.5 10.5h-0.5a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v.5',
+  ext: 'M6 3H3.5v9.5H13V10M9 3h4v4M13 3 7.5 8.5',
+  close: 'M4 4l8 8M12 4l-8 8',
+  moon: 'M13 9.5A5.5 5.5 0 0 1 6.5 3a5.5 5.5 0 1 0 6.5 6.5z',
+  sun: 'M8 5a3 3 0 1 0 0 6 3 3 0 0 0 0-6zM8 1v1.5M8 13.5V15M1 8h1.5M13.5 8H15M3 3l1 1M12 12l1 1M3 13l1-1M12 4l1-1',
+  left: 'M10 3 5 8l5 5',
+  right: 'M6 3l5 5-5 5',
+  logo: 'M8 1v14M1.9 4.5l12.2 7M1.9 11.5l12.2-7',
+};
+function icon(name, size) {
+  const ns = 'http://www.w3.org/2000/svg';
+  const s = document.createElementNS(ns, 'svg');
+  s.setAttribute('viewBox', '0 0 16 16'); s.setAttribute('width', size || 15); s.setAttribute('height', size || 15); s.setAttribute('aria-hidden', 'true');
+  const p = document.createElementNS(ns, 'path');
+  p.setAttribute('d', ICONS[name]); p.setAttribute('fill', 'none'); p.setAttribute('stroke', 'currentColor');
+  p.setAttribute('stroke-width', '1.5'); p.setAttribute('stroke-linecap', 'round'); p.setAttribute('stroke-linejoin', 'round');
+  s.append(p);
+  return s;
+}
+
+let toastTimer = 0;
+function toast(msg) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.remove('hidden');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.add('hidden'), 3200);
+}
+
+function copyText(text, what) {
+  (navigator.clipboard ? navigator.clipboard.writeText(text) : Promise.reject()).then(() => toast((what || 'Copied') + ' ✓'), () => toast('Copy failed'));
+}
+
+// ——— formatting ———
+
+const short = (a) => (a && a.length > 12 ? a.slice(0, 4) + '…' + a.slice(-4) : a || '—');
+function usd(v) {
+  if (v === null || v === undefined || !isFinite(v)) return '—';
+  const a = Math.abs(v), s = v < 0 ? '−$' : '$';
+  if (a >= 1e9) return s + (a / 1e9).toFixed(2) + 'B';
+  if (a >= 1e6) return s + (a / 1e6).toFixed(2) + 'M';
+  if (a >= 1e3) return s + (a / 1e3).toFixed(1) + 'K';
+  return s + a.toFixed(0);
+}
+function sol(v, signed) {
+  const n = typeof v === 'string' ? Number(v) : v;
+  if (n === null || n === undefined || !isFinite(n)) return '—';
+  if (n === 0) return '0';
+  const a = Math.abs(n);
+  const d = a >= 100 ? 1 : a >= 1 ? 2 : a >= 0.01 ? 3 : 4;
+  const s = n < 0 ? '−' : signed && n > 0 ? '+' : '';
+  return s + a.toFixed(d);
+}
+const share = (v) => (v === null || v === undefined || !isFinite(v) ? '—' : Math.round(v * 100) + '%');
+const pct = (v, signed) => (v === null || v === undefined || !isFinite(v) ? '—' : (v < 0 ? '−' : signed && v > 0 ? '+' : '') + Math.abs(v).toFixed(Math.abs(v) >= 100 ? 0 : 1) + '%');
+function dur(s) {
+  if (s === null || s === undefined || !isFinite(s)) return '—';
+  s = Math.max(0, s);
+  if (s < 60) return Math.round(s) + 's';
+  if (s < 3600) return Math.round(s / 60) + 'm';
+  if (s < 86400) return Math.round(s / 3600) + 'h';
+  return Math.round(s / 86400) + 'd';
+}
+function ago(iso) {
+  const t = Date.parse(iso);
+  if (!isFinite(t)) return '—';
+  return dur((Date.now() - t) / 1000) + ' ago';
+}
+const tone = (n) => (n > 0 ? 'pos' : n < 0 ? 'neg' : '');
+
+// ——— demo data (deterministic, clearly sample) ———
+
+function rng(seed) {
+  let x = 2166136261;
+  for (let i = 0; i < seed.length; i++) x = Math.imul(x ^ seed.charCodeAt(i), 16777619);
+  return () => {
+    x = Math.imul(x ^ (x >>> 15), 2246822507);
+    x = Math.imul(x ^ (x >>> 13), 3266489909);
+    x ^= x >>> 16;
+    return (x >>> 0) / 4294967296;
+  };
+}
+const B58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+const fakeAddr = (r, n) => Array.from({ length: n || 44 }, () => B58[Math.floor(r() * 58)]).join('');
+const COINS = ['FROGE', 'BONKER', 'CATNIP', 'MOONRAT', 'SOLDOG', 'GIGACAT', 'PUMPY', 'HODLR', 'ZOOMER', 'NEKO', 'BLIP', 'TURBO', 'COPIUM', 'LAMBO', 'WAGMI', 'SNOWY', 'ICEPEPE', 'YETI'];
+const ARCHETYPES = ['steady', 'steady', 'elite', 'sniper', 'lottery', 'bagholder', 'cooled', 'steady', 'thin', 'flipper'];
+
+const DEMO = (() => {
+  const r = rng('blizz-demo-wallets');
+  const now = Date.now();
+  const wallets = [];
+  for (let i = 0; i < 24; i++) {
+    const arch = ARCHETYPES[i % ARCHETYPES.length];
+    const coins = arch === 'thin' ? 6 + Math.floor(r() * 3) : 25 + Math.floor(r() * 260);
+    const wr = { steady: 0.56, elite: 0.66, sniper: 0.48, lottery: 0.31, bagholder: 0.52, cooled: 0.5, thin: 0.6, flipper: 0.62 }[arch] + (r() - 0.5) * 0.08;
+    const profit = { steady: 4000, elite: 25000, sniper: 9000, lottery: 14000, bagholder: 3000, cooled: 7000, thin: 600, flipper: 5000 }[arch] * (0.6 + r());
+    const hold = { steady: 900, elite: 1500, sniper: 25, lottery: 2400, bagholder: 7200, cooled: 1100, thin: 1800, flipper: 9 }[arch] * (0.6 + r() * 0.8);
+    const cycles = Math.round(coins * (1 + r()));
+    wallets.push({
+      wallet: fakeAddr(r), arch,
+      type: arch === 'sniper' ? 'sniper' : arch === 'thin' ? 'fresh' : 'profit_trader',
+      total_profit_usd: Math.round(profit * 100) / 100,
+      total_x: 1.05 + r() * (arch === 'elite' ? 1.4 : 0.8),
+      win_rate: Math.max(0.2, Math.min(0.85, wr)),
+      cnt_coins: coins, low_traders_coins: Math.floor(coins * r() * 0.1), snipe_coins: arch === 'sniper' ? Math.floor(coins * 0.6) : Math.floor(coins * r() * 0.08),
+      scum_deal: 0, low_coin_p: r() * 0.1, snipe_p: arch === 'sniper' ? 0.55 + r() * 0.2 : r() * 0.08,
+      gini: arch === 'lottery' ? 0.86 + r() * 0.08 : 0.3 + r() * 0.35, profit_80: 0.2 + r() * 0.5,
+      first_tx_at: new Date(now - (10 + r() * 4) * 86400e3).toISOString(),
+      last_tx_at: new Date(now - (arch === 'cooled' ? 30 : 0.2 + r() * 20) * 3600e3).toISOString(),
+      behavior: {
+        cycle_count: cycles, avg_hold_sec: hold * 1.8, median_hold_sec: hold,
+        sub_60s_cycles: arch === 'flipper' || arch === 'sniper' ? Math.floor(cycles * 0.6) : Math.floor(cycles * 0.05),
+        avg_buys_per_cycle: 1 + r(), avg_sells_per_cycle: 1 + r() * 0.8,
+        winning_cycles: Math.round(cycles * wr), losing_cycles: Math.round(cycles * (1 - wr)),
+        avg_pnl_sol_per_cycle: 0.05 + r() * 0.3, best_cycle_pnl_sol: 2 + r() * 12,
+      },
+      balance_sol: Math.round((3 + r() * 80) * 100) / 100,
+    });
+  }
+  return { wallets };
+})();
+
+function demoSearch(body) {
+  let list = DEMO.wallets.slice();
+  const f = body.filters || {};
+  const has = (k) => f[k] !== undefined;
+  if (has('min_total_profit_usd')) list = list.filter((w) => w.total_profit_usd >= f.min_total_profit_usd);
+  if (has('min_win_rate')) list = list.filter((w) => w.win_rate >= f.min_win_rate);
+  if (has('min_cnt_coins')) list = list.filter((w) => w.cnt_coins >= f.min_cnt_coins);
+  if (has('max_snipe_p')) list = list.filter((w) => w.snipe_p <= f.max_snipe_p);
+  if (has('max_gini')) list = list.filter((w) => w.gini <= f.max_gini);
+  if (has('wallet_type')) list = list.filter((w) => w.type === f.wallet_type);
+  if (has('min_median_hold_sec')) list = list.filter((w) => w.behavior.median_hold_sec >= f.min_median_hold_sec);
+  if (has('max_median_hold_sec')) list = list.filter((w) => w.behavior.median_hold_sec <= f.max_median_hold_sec);
+  if (has('last_active_within_sec')) list = list.filter((w) => Date.now() - Date.parse(w.last_tx_at) <= f.last_active_within_sec * 1000);
+  const [col, dir] = (body.sort || 'total_profit_usd desc').split(' ');
+  const key = (w) => (col === 'last_tx_at' ? Date.parse(w.last_tx_at) : w[col]);
+  list.sort((a, b) => (dir === 'asc' ? key(a) - key(b) : key(b) - key(a)));
+  const wallets = list.slice(0, body.limit || 20).map(({ arch, ...w }) => w);
+  return { filters: Object.keys(f).sort(), sort: body.sort, limit: body.limit, pf_share_48h: false, period: body.period || 14, candidates_scanned: list.length, cached: false, wallets };
+}
+
+function demoAssess(wallet, period) {
+  const w = DEMO.wallets.find((x) => x.wallet === wallet) || DEMO.wallets[0];
+  const r = rng(wallet + period);
+  const b = w.behavior;
+  const closed = Math.max(0, Math.round(b.cycle_count * (period / 14) * 0.92));
+  const invested = closed * (0.4 + r() * 0.6);
+  const roi = { steady: 0.28, elite: 1.25, sniper: 0.4, lottery: 0.35, bagholder: 0.12, cooled: 0.2, thin: 0.3, flipper: 0.18 }[w.arch] * (0.8 + r() * 0.4);
+  const m = {
+    cycles: Math.round(closed / 0.92), closed_cycles: closed, open_cycles: Math.round(closed * 0.08),
+    stale_open_cycles: w.arch === 'bagholder' ? Math.round(closed * 0.36) : Math.round(closed * 0.02),
+    invested_sol: invested, pnl_sol: invested * roi, roi, win_rate: w.win_rate,
+    median_hold_sec: b.median_hold_sec,
+    launch_snipe_share: w.arch === 'sniper' ? 0.58 : 0.03 + r() * 0.06,
+    quick_flip_share: w.arch === 'flipper' ? 0.47 : 0.04 + r() * 0.08,
+    bag_share: w.arch === 'bagholder' ? 0.36 : 0.02 + r() * 0.05,
+    big_loss_share: w.arch === 'bagholder' ? 0.38 : 0.05 + r() * 0.1,
+    self_launch_share: 0,
+    best_day_share: w.arch === 'lottery' ? 0.71 : 0.12 + r() * 0.2,
+    green_days_share: w.arch === 'elite' ? 0.72 : 0.45 + r() * 0.2,
+    pnl_7d_sol: w.arch === 'cooled' ? -invested * 0.15 : invested * roi * 0.45,
+    roi_7d: w.arch === 'cooled' ? -0.18 : roi * 0.9,
+    cycles_per_day: closed / period, type: w.type, total_profit_usd: w.total_profit_usd, gini: w.gini, scum_deal: 0,
+  };
+  if (w.arch === 'thin') { m.closed_cycles = 7; m.cycles = 8; }
+  const gate = (id, title, status, reason, values) => ({ id, title, status, reason, values });
+  const gates = [
+    w.arch === 'thin' ? gate('record', 'Record is real', 'unknown', 'Only 7 closed trade cycles in the window — too few to judge.', { closed_cycles: 7 })
+      : w.arch === 'lottery' ? gate('record', 'Record is real', 'fail', 'One day made 71% of the profit: luck, not an edge.', { best_day_share: 0.71, closed_cycles: closed })
+      : gate('record', 'Record is real', 'pass', closed + ' closed cycles; the best day made ' + share(m.best_day_share) + ' of the profit.', { closed_cycles: closed, best_day_share: +m.best_day_share.toFixed(2) }),
+    w.arch === 'cooled' ? gate('current', 'Still making money', 'fail', 'Lost ' + sol(-m.pnl_7d_sol) + ' SOL over the last 7 days (ROI −18%) after a positive window.', { pnl_7d_sol: +m.pnl_7d_sol.toFixed(2), roi_7d: -0.18 })
+      : gate('current', 'Still making money', 'pass', 'Up ' + sol(m.pnl_7d_sol) + ' SOL over the last 7 days.', { pnl_7d_sol: +m.pnl_7d_sol.toFixed(2), roi_7d: +m.roi_7d.toFixed(2) }),
+    w.arch === 'sniper' ? gate('copyable', 'You can follow it', 'fail', '58% of its entries come in the first 30 seconds of a coin — a copy buys after its pump.', { launch_snipe_share: 0.58 })
+      : w.arch === 'flipper' ? gate('copyable', 'You can follow it', 'fail', '47% of its exits come within 30 seconds of the entry — the copy would be its exit liquidity.', { quick_flip_share: 0.47, median_hold_sec: Math.round(b.median_hold_sec) })
+      : gate('copyable', 'You can follow it', 'pass', 'Few launch snipes (' + share(m.launch_snipe_share) + '), median hold ' + dur(b.median_hold_sec) + '.', { launch_snipe_share: +m.launch_snipe_share.toFixed(2), median_hold_sec: Math.round(b.median_hold_sec) }),
+    w.arch === 'bagholder' ? gate('cuts_losses', 'Cuts losses', 'fail', '36% of its cycles stayed open for over a day and 38% lost more than half.', { bag_share: 0.36, big_loss_share: 0.38 })
+      : gate('cuts_losses', 'Cuts losses', 'pass', share(m.bag_share) + ' of cycles left open over a day, ' + share(m.big_loss_share) + ' lost more than half.', { bag_share: +m.bag_share.toFixed(2), big_loss_share: +m.big_loss_share.toFixed(2) }),
+  ];
+  const fail = (id) => gates.find((g) => g.id === id).status === 'fail';
+  let verdict;
+  if (w.arch === 'thin') verdict = { code: 'no_data', headline: 'Not enough data: 7 closed cycles in ' + period + ' days' };
+  else if (fail('record')) verdict = { code: 'do_not_copy', headline: 'Do not copy: one day made most of the profit' };
+  else if (fail('current')) verdict = { code: 'do_not_copy', headline: 'Do not copy: it has stopped making money' };
+  else if (fail('copyable')) verdict = { code: 'watch', headline: w.arch === 'sniper' ? 'Watch, do not copy: it snipes launches' : 'Watch, do not copy: it flips out in seconds' };
+  else if (fail('cuts_losses')) verdict = { code: 'copy_buys_set_stops', headline: 'Copy the buys, not the exits: it does not cut losses' };
+  else verdict = { code: 'copy_small', headline: 'Copyable at a small size: all four checks pass' };
+  const tier = verdict.code.startsWith('copy') ? (roi >= 1 && w.win_rate >= 0.55 ? 'elite' : roi >= 0.5 ? 'tier2' : roi >= 0.2 ? 'tier3' : null) : null;
+  const suggested = verdict.code.startsWith('copy') || verdict.code === 'watch' ? {
+    target: wallet,
+    buy: { amount_sol: null },
+    sell: { auto: verdict.code === 'copy_buys_set_stops' ? [{ type: 'sl', trigger_pct: 40, size_pct: 100 }, { type: 'tp', trigger_pct: 100, size_pct: 50 }] : [] },
+    filters: { copy_sells: verdict.code !== 'copy_buys_set_stops', anti_pvp: w.arch === 'flipper' ? { hold_sec: 30, ban_sec: 3600 } : null, skip_creator_launch: false },
+  } : null;
+  return { wallet, period, cached: false, verdict, tier, gates, metrics: m, suggested_order: verdict.code === 'watch' ? null : suggested, notes: ['Sample data — demo mode.'] };
+}
+
+function demoPnl(wallet, month) {
+  const r = rng(wallet + month);
+  const [y, mo] = month.split('-').map(Number);
+  const days = [];
+  const last = new Date(Date.UTC(y, mo, 0)).getUTCDate();
+  const today = new Date();
+  let total = 0;
+  for (let d = 1; d <= last; d++) {
+    const dt = new Date(Date.UTC(y, mo - 1, d));
+    if (dt > today || r() < 0.25) continue;
+    const v = Math.round((r() - 0.38) * 6 * 100) / 100;
+    total += v;
+    days.push({ date: dt.toISOString().slice(0, 10), pnl_sol: v });
+  }
+  return { wallet, month, month_pnl_sol: total, total_pnl_sol: total * 1.4, cached: false, days };
+}
+
+function demoCoins(wallet, interval) {
+  const r = rng(wallet + interval);
+  const n = 8 + Math.floor(r() * 10);
+  const coins = [];
+  for (let i = 0; i < n; i++) {
+    const bought = Math.round((0.2 + r() * 4) * 1000) / 1000;
+    const mult = 0.3 + r() * 2.2;
+    const held = r() < 0.25;
+    const sold = held ? bought * mult * 0.4 : bought * mult;
+    const pnl = sold - bought + (held ? bought * 0.3 : 0);
+    coins.push({
+      mint: fakeAddr(r, 43) + 'p', symbol: COINS[Math.floor(r() * COINS.length)], name: null, image: null, launchpad: 'pf', deployer: null,
+      created_at: null, bought_sol: bought, bought_tokens: bought * 1e6, sold_sol: sold, sold_tokens: held ? bought * 4e5 : bought * 1e6,
+      balance_tokens: held ? bought * 6e5 : 0, buys: 1 + Math.floor(r() * 3), sells: held ? 1 : 1 + Math.floor(r() * 2), fees_sol: 0.002,
+      first_trade_at: new Date(Date.now() - r() * 6 * 86400e3).toISOString(), last_buy_at: null,
+      last_trade_at: new Date(Date.now() - r() * 5 * 86400e3).toISOString(), price_sol: null, price_usd: null,
+      pnl_sol: pnl, pnl_pct: (pnl / bought) * 100, unknown_sells: false,
+    });
+  }
+  coins.sort((a, b) => Date.parse(b.last_trade_at) - Date.parse(a.last_trade_at));
+  return { wallet, interval, balance_sol: 12.5, pnl_sol: coins.reduce((s, c) => s + c.pnl_sol, 0), cached: false, coins };
+}
+
+const DEMO_MY_WALLETS = (() => {
+  const r = rng('blizz-demo-mine');
+  return { wallets: [
+    { address: fakeAddr(r), label: 'Main', balance_sol: '2.41', orders: 3, created_at: '2026-10-01T10:00:00Z' },
+    { address: fakeAddr(r), label: 'Copy 2', balance_sol: '0.86', orders: 1, created_at: '2026-10-08T12:00:00Z' },
+  ], total_sol: '3.27' };
+})();
+
+// ——— search form ———
+
+const FIELDS = [
+  { key: 'min_total_profit_usd', label: 'Min profit, $', kind: 'num', ph: '2000' },
+  { key: 'min_win_rate', label: 'Min win rate, %', kind: 'share', ph: '55' },
+  { key: 'min_cnt_coins', label: 'Min coins traded', kind: 'int', ph: '20' },
+  { key: 'max_snipe_p', label: 'Max snipe share, %', kind: 'share', ph: '10' },
+  { key: 'max_gini', label: 'Max concentration, %', kind: 'share', ph: '60' },
+  { key: 'min_median_hold_sec', label: 'Min median hold, s', kind: 'int', ph: '60' },
+  { key: 'max_median_hold_sec', label: 'Max median hold, s', kind: 'int', ph: '' },
+  { key: 'min_trades_24h', label: 'Min swaps in 24 h', kind: 'int', ph: '' },
+  { key: 'last_active_within_sec', label: 'Active within', kind: 'select', options: [['', 'Any time'], ['3600', '1 hour'], ['21600', '6 hours'], ['86400', '24 hours'], ['259200', '3 days'], ['604800', '7 days']] },
+  { key: 'wallet_type', label: 'Wallet class', kind: 'select', options: [['', 'Any'], ['profit_trader', 'Profit trader'], ['sniper', 'Sniper'], ['fresh', 'Fresh']] },
+];
+
+const PRESETS = [
+  { id: 'winners', label: 'Consistent winners', note: 'Profitable over many coins, profit not from one lucky trade, traded today.',
+    values: { min_total_profit_usd: '2000', min_win_rate: '55', min_cnt_coins: '20', max_gini: '60', last_active_within_sec: '86400' }, sort: 'total_profit_usd desc' },
+  { id: 'active', label: 'Active right now', note: 'Profit traders that traded in the last hour and are busy today.',
+    values: { wallet_type: 'profit_trader', last_active_within_sec: '3600', min_trades_24h: '10' }, sort: 'last_tx_at desc' },
+  { id: 'swing', label: 'Swing, easy to follow', note: 'Hardly snipes, holds for minutes or longer — copies land at a similar price.',
+    values: { max_snipe_p: '10', min_median_hold_sec: '600', min_cnt_coins: '15', min_total_profit_usd: '1000' }, sort: 'win_rate desc' },
+  { id: 'spread', label: 'Big but spread out', note: 'Large profit spread over many coins.',
+    values: { min_total_profit_usd: '10000', max_gini: '50' }, sort: 'total_profit_usd desc' },
+];
+
+const SORTS = [
+  ['total_profit_usd desc', 'Profit, high first'], ['win_rate desc', 'Win rate, high first'], ['total_x desc', 'X (out ÷ in), high first'],
+  ['cnt_coins desc', 'Coins traded, most first'], ['last_tx_at desc', 'Last trade, newest first'], ['gini asc', 'Profit concentration, lowest first'],
+];
+
+let preset = PRESETS[0];
+
+function renderForm() {
+  const box = clear($('filterFields'));
+  for (const f of FIELDS) {
+    const id = 'f_' + f.key;
+    const input = f.kind === 'select'
+      ? h('select', { class: 'in', id }, f.options.map(([v, t]) => h('option', { value: v }, t)))
+      : h('input', { class: 'in num', id, inputmode: 'decimal', placeholder: f.ph || '' });
+    input.addEventListener('input', () => { preset = null; renderPresets(); });
+    box.append(h('label', { class: 'f' }, h('span', null, f.label), input));
+  }
+  const per = clear($('period'));
+  for (const d of [1, 3, 7, 14, 30]) per.append(h('option', { value: String(d) }, d + (d === 1 ? ' day' : ' days')));
+  per.value = '14';
+  const so = clear($('sort'));
+  for (const [v, t] of SORTS) so.append(h('option', { value: v }, t));
+  const li = clear($('limit'));
+  for (const n of [20, 50, 100]) li.append(h('option', { value: String(n) }, String(n)));
+}
+
+function renderPresets() {
+  const box = clear($('presets'));
+  for (const p of PRESETS) box.append(h('button', { type: 'button', class: 'chip' + (preset === p ? ' on' : ''), onclick: () => applyPreset(p) }, p.label));
+  $('presetNote').textContent = preset ? preset.note : 'Custom filters.';
+}
+
+function applyPreset(p) {
+  for (const f of FIELDS) $('f_' + f.key).value = p.values[f.key] || '';
+  $('sort').value = p.sort;
+  preset = p;
+  renderPresets();
+  runSearch();
+}
+
+/** Form → request body. Percent fields go as shares; empty fields are left out. */
+function readBody() {
+  const filters = {};
+  for (const f of FIELDS) {
+    const el = $('f_' + f.key);
+    el.classList.remove('bad');
+    const raw = el.value.trim().replace(',', '.');
+    if (!raw) continue;
+    if (f.kind === 'select') { filters[f.key] = f.key === 'last_active_within_sec' ? Number(raw) : raw; continue; }
+    const n = Number(raw);
+    if (!isFinite(n) || n < 0) { el.classList.add('bad'); throw new Error('“' + f.label + '” must be a number ≥ 0.'); }
+    filters[f.key] = f.kind === 'share' ? n / 100 : f.kind === 'int' ? Math.round(n) : n;
+  }
+  if (!Object.keys(filters).length) throw new Error('Pick at least one filter or a preset.');
+  return { filters, sort: $('sort').value, limit: Number($('limit').value), period: Number($('period').value) };
+}
+
+let lastSearch = null;
+
+async function runSearch() {
+  const err = $('searchErr');
+  err.textContent = '';
+  let body;
+  try { body = readBody(); } catch (e) { err.textContent = e.message; return; }
+  const btn = $('searchBtn');
+  btn.disabled = true;
+  renderResultsLoading();
+  try {
+    const data = isDemo() ? demoSearch(body) : await api('POST', '/wallets/search', body);
+    lastSearch = data;
+    renderResults(data);
+  } catch (e) {
+    err.textContent = explain(e, 'Wallet data · read');
+    clear($('results')).append(h('div', { class: 'empty' }, 'No results.'));
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function renderResultsLoading() {
+  const box = clear($('results'));
+  const wrap = h('div', { style: 'padding:16px;display:grid;gap:12px' });
+  for (let i = 0; i < 6; i++) wrap.append(h('div', { class: 'skel', style: 'width:' + (60 + (i * 7) % 35) + '%' }));
+  box.append(wrap);
+}
+
+let openWalletAddr = null;
+
+function renderResults(data) {
+  $('resultsTitle').textContent = 'Results · ' + data.wallets.length;
+  $('resultsMeta').textContent = (data.cached ? 'cached · ' : '') + data.period + '-day statistics · ' + data.candidates_scanned + ' candidates scanned';
+  const box = clear($('results'));
+  if (!data.wallets.length) {
+    box.append(h('div', { class: 'empty' }, 'No wallets match. Loosen a filter — fewer coins, a lower win rate or a longer activity window.'));
+    return;
+  }
+  const head = h('tr', null,
+    h('th', null, 'Wallet'), h('th', { class: 'col-opt' }, 'Class'), h('th', { class: 'r' }, 'Profit'), h('th', { class: 'r' }, 'Win rate'),
+    h('th', { class: 'r' }, 'Coins'), h('th', { class: 'r col-opt' }, 'X'), h('th', { class: 'r' }, 'Median hold'), h('th', { class: 'r col-opt' }, 'Last trade'),
+    h('th', { class: 'r col-opt' }, 'Balance'));
+  const rows = data.wallets.map((w) => {
+    const tr = h('tr', { class: 'click' + (w.wallet === openWalletAddr ? ' sel' : ''), onclick: () => openWallet(w) },
+      h('td', null, h('span', { class: 'copyaddr mono', title: w.wallet, onclick: (e) => { e.stopPropagation(); copyText(w.wallet, 'Address copied'); } }, short(w.wallet), icon('copy', 12))),
+      h('td', { class: 'col-opt' }, w.type ? h('span', { class: 'tag' }, w.type.replace('_', ' ')) : h('span', { class: 'faint' }, '—')),
+      h('td', { class: 'r num ' + tone(w.total_profit_usd) }, usd(w.total_profit_usd)),
+      h('td', { class: 'r num' }, share(w.win_rate)),
+      h('td', { class: 'r num' }, String(w.cnt_coins)),
+      h('td', { class: 'r num col-opt' }, w.total_x === null || w.total_x === undefined ? '—' : w.total_x.toFixed(2) + '×'),
+      h('td', { class: 'r num' }, w.behavior ? dur(w.behavior.median_hold_sec) : '—'),
+      h('td', { class: 'r num col-opt muted' }, ago(w.last_tx_at)),
+      h('td', { class: 'r num col-opt' }, w.balance_sol === null || w.balance_sol === undefined ? '—' : sol(w.balance_sol) + ' SOL'));
+    return tr;
+  });
+  box.append(h('table', null, h('thead', null, head), h('tbody', null, rows)));
+}
+
+// ——— wallet drawer ———
+
+const cache = new Map();
+async function cached(key, load) {
+  if (cache.has(key)) return cache.get(key);
+  const v = await load();
+  cache.set(key, v);
+  return v;
+}
+
+const W = { addr: null, row: null, tab: 'assess', period: 14, month: null, interval: '7d', assess: null };
+
+function openWallet(row) {
+  W.addr = row.wallet; W.row = row; W.tab = 'assess'; W.assess = null;
+  const now = new Date();
+  W.month = now.getUTCFullYear() + '-' + String(now.getUTCMonth() + 1).padStart(2, '0');
+  openWalletAddr = row.wallet;
+  if (lastSearch) renderResults(lastSearch);
+  $('scrim').classList.remove('hidden');
+  $('drawer').classList.remove('hidden');
+  renderDrawer();
+}
+
+function closeWallet() {
+  $('scrim').classList.add('hidden');
+  $('drawer').classList.add('hidden');
+  openWalletAddr = null;
+  if (lastSearch) renderResults(lastSearch);
+}
+
+function renderDrawer() {
+  const d = clear($('drawer'));
+  const base = S.base.replace(/\/+$/, '');
+  const header = h('div', { class: 'drawer-h' },
+    h('div', { style: 'display:flex;align-items:center;gap:10px' },
+      h('div', { style: 'flex:1;min-width:0' },
+        h('div', { class: 'kicker' }, 'Wallet'),
+        h('div', { class: 'copyaddr mono', style: 'font-size:14px;margin-top:4px;word-break:break-all;white-space:normal', title: 'Copy address', onclick: () => copyText(W.addr, 'Address copied') }, W.addr, icon('copy', 13))),
+      h('button', { class: 'iconbtn', title: 'Close', 'aria-label': 'Close', onclick: closeWallet }, icon('close'))),
+    h('div', { class: 'links' },
+      h('a', { href: 'https://solscan.io/account/' + encodeURIComponent(W.addr), target: '_blank', rel: 'noopener' }, 'Solscan', icon('ext', 11)),
+      h('a', { href: base + '/discover/' + encodeURIComponent(W.addr), target: '_blank', rel: 'noopener' }, 'Open in Blizz Discover', icon('ext', 11))),
+    h('div', { class: 'tabs' }, [['assess', 'Assessment'], ['pnl', 'PnL calendar'], ['coins', 'Coins']].map(([id, t]) =>
+      h('button', { class: W.tab === id ? 'on' : '', onclick: () => { W.tab = id; renderDrawer(); } }, t))));
+  const body = h('div', { class: 'drawer-b', id: 'drawerBody' });
+  d.append(header, body);
+  if (W.tab === 'assess') loadAssess(body);
+  else if (W.tab === 'pnl') loadPnl(body);
+  else loadCoins(body);
+}
+
+function loading(box) {
+  const wrap = h('div', { style: 'display:grid;gap:12px' });
+  for (let i = 0; i < 5; i++) wrap.append(h('div', { class: 'skel', style: 'width:' + (90 - i * 12) + '%' }));
+  clear(box).append(wrap);
+}
+
+function seg(values, current, pick, label) {
+  return h('div', { class: 'seg', role: 'group', 'aria-label': label || '' }, values.map(([v, t]) =>
+    h('button', { type: 'button', class: String(v) === String(current) ? 'on' : '', onclick: () => pick(v) }, t)));
+}
+
+const VERDICT_TONE = { copy_small: 'good', copy_buys_set_stops: 'good', watch: 'mid', do_not_copy: 'bad', no_data: '' };
+const TIER = { elite: 'Elite', tier2: 'Tier 2', tier3: 'Tier 3' };
+const MARK = { pass: '✓', fail: '✕', unknown: '?' };
+
+const METRICS = [
+  ['closed_cycles', 'Closed cycles', (v) => String(v)],
+  ['pnl_sol', 'PnL, SOL', (v) => sol(v, true)],
+  ['roi', 'ROI', (v) => pct(v * 100, true)],
+  ['win_rate', 'Win rate', share],
+  ['green_days_share', 'Green days', share],
+  ['median_hold_sec', 'Median hold', dur],
+  ['pnl_7d_sol', 'PnL 7 days, SOL', (v) => sol(v, true)],
+  ['cycles_per_day', 'Cycles a day', (v) => (v === null || v === undefined ? '—' : v.toFixed(1))],
+  ['launch_snipe_share', 'Launch snipes', share],
+  ['quick_flip_share', 'Exits < 30 s', share],
+  ['bag_share', 'Left open > 1 day', share],
+  ['big_loss_share', 'Lost > 50%', share],
+  ['best_day_share', 'Best day of profit', share],
+  ['self_launch_share', 'Own launches', share],
+  ['invested_sol', 'Traded in, SOL', (v) => sol(v)],
+  ['total_profit_usd', 'Profit, $', usd],
+];
+
+async function loadAssess(box) {
+  const top = h('div', { style: 'display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px;flex-wrap:wrap' },
+    h('div', { class: 'muted', style: 'font-size:12.5px' }, 'Deterministic checks by Blizz — no AI in the score.'),
+    seg([[7, '7D'], [14, '14D'], [30, '30D']], W.period, (v) => { W.period = v; renderDrawer(); }, 'Assessment window'));
+  const out = h('div');
+  clear(box).append(top, out);
+  loading(out);
+  try {
+    const a = await cached('assess|' + W.addr + '|' + W.period, () => (isDemo() ? Promise.resolve(demoAssess(W.addr, W.period)) : api('GET', '/wallets/' + encodeURIComponent(W.addr) + '/assess?period=' + W.period)));
+    W.assess = a;
+    renderAssess(out, a);
+  } catch (e) {
+    clear(out).append(h('div', { class: 'err' }, explain(e, 'Wallet data · read')));
+  }
+}
+
+function renderAssess(out, a) {
+  clear(out);
+  const v = a.verdict || { code: 'no_data', headline: 'No verdict' };
+  out.append(h('div', { class: 'verdict ' + (VERDICT_TONE[v.code] || '') },
+    h('div', { style: 'display:flex;gap:8px;align-items:center;flex-wrap:wrap' },
+      h('span', { class: 'kicker' }, 'Verdict'),
+      a.tier ? h('span', { class: 'tag gold' }, TIER[a.tier] || a.tier) : null,
+      a.cached ? h('span', { class: 'faint', style: 'font-size:11.5px' }, 'cached') : null),
+    h('h3', null, v.headline || v.code)));
+  out.append(h('div', { class: 'gates' }, (a.gates || []).map((g) =>
+    h('div', { class: 'gate' },
+      h('span', { class: 'mark ' + g.status, title: g.status === 'unknown' ? 'Not measured' : g.status }, MARK[g.status] || '?'),
+      h('div', null,
+        h('div', { class: 't' }, g.title, g.status === 'unknown' ? h('span', { class: 'faint', style: 'font-weight:400;font-size:12px' }, ' · not measured') : null),
+        h('div', { class: 'why' }, g.reason || ''),
+        g.values && Object.keys(g.values).length ? h('div', { class: 'vals' }, Object.entries(g.values).map(([k, val]) =>
+          h('span', { class: 'val' }, k.replace(/_/g, ' ') + ' ', h('b', { class: 'num' }, typeof val === 'number' && !Number.isInteger(val) ? val.toFixed(2) : String(val))))) : null)))));
+  const m = a.metrics || {};
+  out.append(h('div', { class: 'metrics' }, METRICS.filter(([k]) => m[k] !== undefined).map(([k, label, f]) =>
+    h('div', { class: 'metric' }, h('div', { class: 'k' }, label), h('div', { class: 'v num ' + (k.includes('pnl') || k === 'roi' ? tone(m[k]) : '') }, m[k] === null ? '—' : f(m[k]))))));
+  if (a.notes && a.notes.length) out.append(h('ul', { class: 'notes' }, a.notes.map((n) => h('li', null, n))));
+  out.append(h('div', { class: 'actions' },
+    h('button', { class: 'btn primary', onclick: () => openCopy(a) }, 'Copy this wallet…'),
+    h('span', { class: 'muted', style: 'font-size:12.5px;align-self:center' }, 'Past results describe the wallet, not what a copy will earn.')));
+}
+
+async function loadPnl(box) {
+  const out = h('div');
+  const [y, mo] = W.month.split('-').map(Number);
+  const shift = (n) => { const d = new Date(Date.UTC(y, mo - 1 + n, 1)); W.month = d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0'); renderDrawer(); };
+  const now = new Date();
+  const isCurrent = y === now.getUTCFullYear() && mo === now.getUTCMonth() + 1;
+  const name = new Date(Date.UTC(y, mo - 1, 1)).toLocaleString('en', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+  clear(box).append(h('div', { class: 'cal-h' },
+    h('button', { class: 'iconbtn', 'aria-label': 'Previous month', onclick: () => shift(-1) }, icon('left')),
+    h('div', { style: 'font-weight:500' }, name),
+    h('button', { class: 'iconbtn', 'aria-label': 'Next month', disabled: isCurrent, onclick: () => shift(1) }, icon('right'))), out);
+  loading(out);
+  try {
+    const p = await cached('pnl|' + W.addr + '|' + W.month, () => (isDemo() ? Promise.resolve(demoPnl(W.addr, W.month)) : api('GET', '/wallets/' + encodeURIComponent(W.addr) + '/pnl?month=' + W.month)));
+    renderCalendar(out, p, y, mo);
+  } catch (e) {
+    clear(out).append(h('div', { class: 'err' }, explain(e, 'Wallet data · read')));
+  }
+}
+
+function renderCalendar(out, p, y, mo) {
+  clear(out);
+  const byDay = new Map((p.days || []).map((d) => [d.date, d.pnl_sol]));
+  const max = Math.max(0.0001, ...[...byDay.values()].map(Math.abs));
+  const grid = h('div', { class: 'cal' }, ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d) => h('div', { class: 'dow' }, d)));
+  const first = new Date(Date.UTC(y, mo - 1, 1)).getUTCDay();
+  const pad = (first + 6) % 7;
+  for (let i = 0; i < pad; i++) grid.append(h('div', { class: 'cell blank' }));
+  const days = new Date(Date.UTC(y, mo, 0)).getUTCDate();
+  for (let d = 1; d <= days; d++) {
+    const key = y + '-' + String(mo).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+    const v = byDay.get(key);
+    const cell = h('div', { class: 'cell', title: v === undefined ? key + ': no closed cycles' : key + ': ' + sol(v, true) + ' SOL' },
+      h('span', { class: 'd' }, String(d)), v === undefined ? h('span') : h('span', { class: 'p num ' + tone(v) }, sol(v, true)));
+    if (v !== undefined && v !== 0) {
+      const alpha = 0.08 + 0.32 * Math.min(1, Math.abs(v) / max);
+      cell.style.background = v > 0 ? 'rgba(11,154,90,' + alpha.toFixed(2) + ')' : 'rgba(213,56,62,' + alpha.toFixed(2) + ')';
+    }
+    grid.append(cell);
+  }
+  out.append(grid, h('div', { class: 'cal-sum' },
+    h('span', null, h('span', { class: 'muted' }, 'Month '), h('b', { class: 'num ' + tone(p.month_pnl_sol) }, sol(p.month_pnl_sol, true) + ' SOL')),
+    h('span', null, h('span', { class: 'muted' }, 'All kept history '), h('b', { class: 'num ' + tone(p.total_pnl_sol) }, p.total_pnl_sol === null ? '—' : sol(p.total_pnl_sol, true) + ' SOL'))),
+  h('div', { class: 'muted', style: 'font-size:12px;margin-top:8px' }, 'Realized PnL of trade cycles by the UTC day they closed. Trades are kept for 30 days.'));
+}
+
+async function loadCoins(box) {
+  const out = h('div');
+  clear(box).append(h('div', { style: 'display:flex;justify-content:flex-end;margin-bottom:12px' },
+    seg([['1d', '1D'], ['3d', '3D'], ['7d', '7D'], ['14d', '14D'], ['30d', '30D']], W.interval, (v) => { W.interval = v; renderDrawer(); }, 'Window')), out);
+  loading(out);
+  try {
+    const c = await cached('coins|' + W.addr + '|' + W.interval, () => (isDemo() ? Promise.resolve(demoCoins(W.addr, W.interval)) : api('GET', '/wallets/' + encodeURIComponent(W.addr) + '/trades?interval=' + W.interval)));
+    renderCoins(out, c);
+  } catch (e) {
+    clear(out).append(h('div', { class: 'err' }, explain(e, 'Wallet data · read')));
+  }
+}
+
+function renderCoins(out, c) {
+  clear(out);
+  out.append(h('div', { class: 'cal-sum', style: 'margin:0 0 12px' },
+    h('span', null, h('span', { class: 'muted' }, 'Coins '), h('b', { class: 'num' }, String(c.coins.length))),
+    h('span', null, h('span', { class: 'muted' }, 'PnL '), h('b', { class: 'num ' + tone(c.pnl_sol) }, sol(c.pnl_sol, true) + ' SOL')),
+    h('span', null, h('span', { class: 'muted' }, 'Balance '), h('b', { class: 'num' }, c.balance_sol === null ? '—' : sol(c.balance_sol) + ' SOL'))));
+  if (!c.coins.length) { out.append(h('div', { class: 'empty' }, 'No trades in this window.')); return; }
+  const rows = c.coins.map((x) => h('tr', null,
+    h('td', null, h('a', { href: 'https://solscan.io/token/' + encodeURIComponent(x.mint), target: '_blank', rel: 'noopener', style: 'text-decoration:none' },
+      h('b', { style: 'font-weight:500' }, x.symbol || short(x.mint))), x.balance_tokens > 0 ? h('span', { class: 'tag', style: 'margin-left:6px' }, 'holds') : null),
+    h('td', { class: 'r num' }, sol(x.bought_sol)),
+    h('td', { class: 'r num' }, sol(x.sold_sol)),
+    h('td', { class: 'r num ' + tone(x.pnl_sol) }, x.pnl_sol === null ? '—' : sol(x.pnl_sol, true)),
+    h('td', { class: 'r num col-opt ' + tone(x.pnl_pct) }, x.pnl_pct === null ? '—' : pct(x.pnl_pct, true)),
+    h('td', { class: 'r num col-opt muted' }, x.buys + '/' + x.sells),
+    h('td', { class: 'r num muted' }, ago(x.last_trade_at).replace(' ago', ''))));
+  out.append(h('div', { class: 'tbl-wrap' }, h('table', null,
+    h('thead', null, h('tr', null, h('th', null, 'Coin'), h('th', { class: 'r' }, 'In, SOL'), h('th', { class: 'r' }, 'Out, SOL'), h('th', { class: 'r' }, 'PnL'),
+      h('th', { class: 'r col-opt' }, 'PnL %'), h('th', { class: 'r col-opt' }, 'Buys/sells'), h('th', { class: 'r' }, 'Last'))),
+    h('tbody', null, rows))));
+  out.append(h('div', { class: 'muted', style: 'font-size:12px;margin-top:8px' }, 'PnL counts what it still holds at the current price; sales without a seen buy show no PnL.'));
+}
+
+// ——— copy dialog ———
+
+async function openCopy(a) {
+  const dlg = $('copyDlg');
+  const v = a.verdict || { code: 'no_data' };
+  const risky = !(v.code === 'copy_small' || v.code === 'copy_buys_set_stops');
+  const sug = JSON.parse(JSON.stringify(a.suggested_order || { buy: {}, sell: { auto: [] }, filters: { copy_sells: true, anti_pvp: null, skip_creator_launch: false } }));
+  sug.filters = sug.filters || {};
+  sug.sell = sug.sell || {};
+  const tp = (sug.sell.auto || []).map((r) => ({ ...r }));
+
+  const amount = h('input', { class: 'in num', inputmode: 'decimal', placeholder: '0.1' });
+  const walletSel = h('select', { class: 'in' }, h('option', { value: '' }, 'Loading your wallets…'));
+  const walletIn = h('input', { class: 'in mono hidden', placeholder: 'Your Blizz wallet address' });
+  const copySells = h('input', { type: 'checkbox', checked: sug.filters.copy_sells !== false });
+  const anti = h('input', { type: 'checkbox', checked: !!sug.filters.anti_pvp });
+  const antiHold = h('input', { class: 'in num', value: String((sug.filters.anti_pvp && sug.filters.anti_pvp.hold_sec) || 30), inputmode: 'numeric' });
+  const antiBan = h('input', { class: 'in num', value: String((sug.filters.anti_pvp && sug.filters.anti_pvp.ban_sec) || 3600), inputmode: 'numeric' });
+  const skipLaunch = h('input', { type: 'checkbox', checked: !!sug.filters.skip_creator_launch });
+  const label = h('input', { class: 'in', value: 'Wallet Analyst', maxlength: '32' });
+  const paused = h('input', { type: 'checkbox' });
+  const ack = h('input', { type: 'checkbox' });
+  const tpBox = h('div', { style: 'display:flex;flex-direction:column;gap:8px' });
+  const summary = h('div', { class: 'summary' });
+  const msg = h('div');
+  const submit = h('button', { class: 'btn primary' }, 'Create copy order');
+
+  const renderTp = () => {
+    clear(tpBox);
+    tp.forEach((row, i) => {
+      const type = h('select', { class: 'in', onchange: (e) => { row.type = e.target.value; update(); } }, h('option', { value: 'tp' }, 'Take profit'), h('option', { value: 'sl' }, 'Stop loss'));
+      type.value = row.type;
+      const trig = h('input', { class: 'in num', value: String(row.trigger_pct), title: 'Trigger, % from entry', oninput: (e) => { row.trigger_pct = e.target.value; update(); } });
+      const size = h('input', { class: 'in num', value: String(row.size_pct), title: 'Sell, % of what is left', oninput: (e) => { row.size_pct = e.target.value; update(); } });
+      tpBox.append(h('div', { class: 'tp-row' }, type, trig, size, h('button', { class: 'iconbtn', type: 'button', 'aria-label': 'Remove', onclick: () => { tp.splice(i, 1); renderTp(); update(); } }, icon('close', 13))));
+    });
+    if (tp.length) tpBox.prepend(h('div', { class: 'tp-row faint', style: 'font-size:11.5px' }, h('span', null, 'Type'), h('span', null, 'Trigger, % from entry'), h('span', null, 'Sell, % of the rest'), h('span')));
+    if (tp.length < 8) tpBox.append(h('div', null, h('button', { type: 'button', class: 'btn', onclick: () => { tp.push({ type: tp.some((r) => r.type === 'sl') ? 'tp' : 'sl', trigger_pct: 40, size_pct: 100 }); renderTp(); update(); } }, '+ Add take-profit / stop-loss')));
+  };
+
+  const pickedWallet = () => (walletIn.classList.contains('hidden') ? walletSel.value : walletIn.value.trim());
+
+  /** Form → POST body, or an error message. */
+  const build = () => {
+    const amt = amount.value.trim().replace(',', '.');
+    if (!/^\d+(\.\d{1,9})?$/.test(amt) || Number(amt) <= 0) return { error: 'Enter the most to spend per copied buy, in SOL (e.g. 0.1).' };
+    const wallet = pickedWallet();
+    if (!wallet) return { error: 'Pick the Blizz wallet that will trade.' };
+    if (wallet === W.addr) return { error: 'The wallet that trades cannot be the target itself.' };
+    const auto = [];
+    for (const r of tp) {
+      const t = Number(r.trigger_pct), s = Number(r.size_pct);
+      if (!Number.isInteger(t) || !Number.isInteger(s) || s < 1 || s > 100 || t < 1 || (r.type === 'sl' ? t > 99 : t > 9999)) return { error: 'Take-profit 1–9999 %, stop-loss 1–99 %, size 1–100 % (whole numbers).' };
+      auto.push({ type: r.type, trigger_pct: t, size_pct: s });
+    }
+    if (!copySells.checked && !auto.length) return { error: 'Without copying its sells, add at least a stop-loss so positions can close.' };
+    if (risky && !ack.checked) return { error: 'Tick the box to confirm you understand the verdict.' };
+    const body = JSON.parse(JSON.stringify(sug));
+    delete body.target; delete body.wallet;
+    body.target = W.addr;
+    body.wallet = wallet;
+    body.label = label.value.trim() || null;
+    body.state = paused.checked ? 'paused' : 'active';
+    body.buy = { ...(body.buy || {}), amount_sol: amt };
+    body.sell = { ...(body.sell || {}) };
+    if (auto.length) body.sell.auto = auto; else delete body.sell.auto;
+    if (!Object.keys(body.sell).length) delete body.sell;
+    body.filters = { ...(body.filters || {}), copy_sells: copySells.checked, skip_creator_launch: skipLaunch.checked,
+      anti_pvp: anti.checked ? { hold_sec: Number(antiHold.value), ban_sec: Number(antiBan.value) } : null };
+    if (anti.checked && (!(body.filters.anti_pvp.hold_sec >= 1 && body.filters.anti_pvp.hold_sec <= 3600) || !(body.filters.anti_pvp.ban_sec >= 1 && body.filters.anti_pvp.ban_sec <= 86400))) return { error: 'Anti-PvP: hold 1–3600 s, pause 1–86400 s.' };
+    return { body };
+  };
+
+  const update = () => {
+    const b = build();
+    clear(summary);
+    if (b.error) { summary.append(h('span', { class: 'muted' }, b.error)); submit.disabled = true; return; }
+    const exits = b.body.filters.copy_sells ? 'copies its sells' : 'exits by your TP/SL only';
+    summary.append('Copy ', h('b', { class: 'mono' }, short(W.addr)), ' from ', h('b', { class: 'mono' }, short(b.body.wallet)), ': up to ', h('b', { class: 'num' }, b.body.buy.amount_sol + ' SOL'),
+      ' per buy, ', exits, (b.body.sell && b.body.sell.auto ? ', ' + b.body.sell.auto.map((r) => (r.type === 'tp' ? 'TP +' : 'SL −') + r.trigger_pct + '% → sell ' + r.size_pct + '%').join(', ') : ''),
+      b.body.filters.anti_pvp ? ', anti-PvP on' : '', ', starts ' + b.body.state + '.');
+    submit.disabled = isDemo();
+  };
+
+  for (const el of [amount, walletIn, antiHold, antiBan, label]) el.addEventListener('input', update);
+  for (const el of [walletSel, copySells, anti, skipLaunch, paused, ack]) el.addEventListener('change', update);
+
+  submit.addEventListener('click', async () => {
+    const b = build();
+    if (b.error) return;
+    submit.disabled = true;
+    clear(msg);
+    try {
+      const order = await api('POST', '/copy/orders', b.body);
+      clear(msg).append(h('div', { class: 'ok' }, 'Copy order created — ' + (order.state || b.body.state) + '. Manage it in Blizz or in the Copy Cockpit demo.'));
+      submit.textContent = 'Created';
+    } catch (e) {
+      clear(msg).append(h('div', { class: 'err' }, explain(e, 'Copy orders · write') + (e.field ? ' (field: ' + e.field + ')' : '')));
+      submit.disabled = false;
+    }
+  });
+
+  clear(dlg).append(h('div', { class: 'dlg' },
+    h('div', null, h('div', { class: 'kicker' }, 'New copy order'), h('h2', { style: 'margin-top:6px' }, 'Copy ', h('span', { class: 'mono' }, short(W.addr)))),
+    h('div', { class: 'verdict ' + (VERDICT_TONE[v.code] || ''), style: 'margin:0;padding:12px 14px' }, h('div', { style: 'font-weight:500' }, v.headline || v.code)),
+    risky ? h('label', { class: 'check' }, ack, h('span', null, 'The verdict is not “copy”. I understand the risk and want to copy anyway.')) : null,
+    h('label', { class: 'f' }, h('span', null, 'Wallet that trades'), walletSel, walletIn),
+    h('label', { class: 'f' }, h('span', null, 'Most to spend per copied buy, SOL'), amount),
+    h('div', { class: 'box' },
+      h('label', { class: 'check' }, copySells, h('span', null, 'Copy its sells (sell the same share it sells)')),
+      h('div', { class: 'kicker', style: 'margin-top:4px' }, 'Your take-profit / stop-loss'), tpBox),
+    h('div', { class: 'box' },
+      h('label', { class: 'check' }, anti, h('span', null, 'Anti-PvP: if it sells within the hold time after buying, stop copying its buys for the pause')),
+      h('div', { class: 'row' }, h('label', { class: 'f', style: 'flex:1' }, h('span', null, 'Hold, s'), antiHold), h('label', { class: 'f', style: 'flex:1' }, h('span', null, 'Pause, s'), antiBan)),
+      h('label', { class: 'check' }, skipLaunch, h('span', null, 'Skip coins it launched itself'))),
+    h('label', { class: 'f' }, h('span', null, 'Label'), label),
+    h('label', { class: 'check' }, paused, h('span', null, 'Create paused (turn on later)')),
+    summary, msg,
+    isDemo() ? h('div', { class: 'muted', style: 'font-size:12.5px' }, 'Demo mode: creating orders needs an API key with “Copy orders · write”.') : null,
+    h('div', { class: 'dlg-f' }, h('button', { class: 'btn', onclick: () => dlg.close() }, 'Close'), submit)));
+  renderTp();
+  update();
+  dlg.showModal();
+  amount.focus();
+
+  try {
+    const my = isDemo() ? DEMO_MY_WALLETS : await api('GET', '/account/wallets');
+    clear(walletSel);
+    if (!my.wallets.length) walletSel.append(h('option', { value: '' }, 'No wallets — add one in Blizz'));
+    for (const w of my.wallets) walletSel.append(h('option', { value: w.address }, (w.label || 'Wallet') + ' · ' + short(w.address) + ' · ' + (w.balance_sol === null ? '—' : sol(w.balance_sol)) + ' SOL'));
+  } catch (e) {
+    // No "Account · read" on this key: type the address instead.
+    walletSel.classList.add('hidden');
+    walletIn.classList.remove('hidden');
+    msg.append(h('div', { class: 'muted', style: 'font-size:12.5px' }, 'Could not list your wallets (' + explain(e, 'Account · read') + ') Type the wallet address.'));
+  }
+  update();
+}
+
+// ——— settings, theme, mode ———
+
+function renderMode() {
+  const p = $('modePill');
+  p.classList.toggle('demo', isDemo());
+  p.classList.toggle('live', !isDemo());
+  $('modeText').textContent = isDemo() ? 'Demo · sample data' : 'Live · ' + S.base.replace(/^https?:\/\//, '');
+  const b = clear($('demoBanner'));
+  b.classList.toggle('hidden', !isDemo());
+  if (isDemo()) b.append(h('span', null, 'Demo mode — sample wallets, nothing is sent anywhere. Add an API key with “Wallet data · read” to search real Solana wallets.'),
+    h('button', { class: 'btn', onclick: openSettings }, 'Add API key'));
+}
+
+function openSettings() {
+  const dlg = $('settingsDlg');
+  const base = h('input', { class: 'in mono', value: S.base });
+  const key = h('input', { class: 'in mono', type: 'password', value: S.key, placeholder: 'sk_…', autocomplete: 'off', spellcheck: 'false' });
+  const remember = h('input', { type: 'checkbox', checked: !!localStorage.getItem(STORE.key) });
+  const show = h('input', { type: 'checkbox', onchange: (e) => { key.type = e.target.checked ? 'text' : 'password'; } });
+  const save = () => {
+    const b = base.value.trim().replace(/\/+$/, '');
+    if (!/^https?:\/\/[^\s/]+$/.test(b)) { toast('The API address looks wrong'); return; }
+    S.base = b;
+    if (b === defaultBase()) localStorage.removeItem(STORE.base); else localStorage.setItem(STORE.base, b);
+    S.key = key.value.trim();
+    sessionStorage.removeItem(STORE.key); localStorage.removeItem(STORE.key);
+    if (S.key) (remember.checked ? localStorage : sessionStorage).setItem(STORE.key, S.key);
+    cache.clear();
+    dlg.close();
+    renderMode();
+    closeWallet();
+    runSearch();
+  };
+  clear(dlg).append(h('div', { class: 'dlg' },
+    h('h2', null, 'Settings'),
+    h('p', null, 'Create a key on Blizz: press API in the header → New key. For this page pick “Wallet data · read”; to create orders from it also “Copy orders · write” and “Account · read”.'),
+    h('label', { class: 'f' }, h('span', null, 'API key'), key),
+    h('label', { class: 'check' }, show, h('span', null, 'Show key')),
+    h('label', { class: 'check' }, remember, h('span', null, 'Remember on this device (otherwise only this tab)')),
+    h('label', { class: 'f' }, h('span', null, 'API address'), base),
+    h('p', { class: 'faint', style: 'font-size:12.5px' }, 'The key is sent only to this address, in the Authorization header. Production: https://blizz.id · dev: https://jizzus.xyz'),
+    h('div', { class: 'dlg-f' },
+      h('button', { class: 'btn danger', onclick: () => { key.value = ''; save(); } }, 'Forget key'),
+      h('button', { class: 'btn', onclick: () => dlg.close() }, 'Cancel'),
+      h('button', { class: 'btn primary', onclick: save }, 'Save'))));
+  dlg.showModal();
+}
+
+function setTheme(t) {
+  document.documentElement.dataset.theme = t;
+  localStorage.setItem(STORE.theme, t);
+  clear($('themeBtn')).append(icon(t === 'dark' ? 'sun' : 'moon'));
+}
+
+function init() {
+  setTheme(localStorage.getItem(STORE.theme) || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
+  $('themeBtn').addEventListener('click', () => setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'));
+  $('settingsBtn').addEventListener('click', openSettings);
+  const brand = $('brand');
+  const logo = icon('logo', 20);
+  logo.style.color = 'var(--gold)';
+  brand.append(logo, h('b', null, 'BLIZZ'), h('span', null, 'Wallet Analyst'));
+  $('scrim').addEventListener('click', closeWallet);
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('drawer').classList.contains('hidden') && !document.querySelector('dialog[open]')) closeWallet(); });
+  $('searchForm').addEventListener('submit', (e) => { e.preventDefault(); runSearch(); });
+  $('clearBtn').addEventListener('click', () => { for (const f of FIELDS) $('f_' + f.key).value = ''; preset = null; renderPresets(); });
+  renderForm();
+  renderMode();
+  applyPreset(PRESETS[0]);
+}
+
+init();
+</script>
+</body>
+</html>

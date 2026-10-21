@@ -1,0 +1,812 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<title>Blizz · Copy Cockpit</title>
+<meta name="description" content="Run your Blizz copy trading from one screen with the Blizz API: results per order, on/off switches, sizes, pause all, positions and the trade feed. A single-file demo: no backend, no build.">
+<style>
+:root {
+  --bg: #ffffff; --ink: #111214; --ink2: #3a3b40; --ink3: #6c6e76; --ink4: #9c9ea5;
+  --line: #e3e3e7; --hair: #efeff2; --surface: #f6f6f8; --sel: #ebebef;
+  --pos: #0b9a5a; --neg: #d5383e; --warn: #c08400; --gold: #c9a227; --onInk: #ffffff;
+  --shadow: rgba(0, 0, 0, .14); --overlay: rgba(10, 10, 14, .38);
+  --posBg: rgba(11, 154, 90, .10); --negBg: rgba(213, 56, 62, .10); --warnBg: rgba(192, 132, 0, .12);
+  --r: 8px;
+}
+:root[data-theme="dark"] {
+  --bg: #0d0d10; --ink: #f1f1f4; --ink2: #cfd0d5; --ink3: #9a9ca4; --ink4: #6b6d75;
+  --line: #26272c; --hair: #1b1c20; --surface: #16171a; --sel: #202126;
+  --pos: #34c48b; --neg: #ff6b71; --warn: #e4aa2c; --gold: #e2be4f; --onInk: #0d0d10;
+  --shadow: rgba(0, 0, 0, .55); --overlay: rgba(0, 0, 0, .6);
+  --posBg: rgba(52, 196, 139, .12); --negBg: rgba(255, 107, 113, .12); --warnBg: rgba(228, 170, 44, .14);
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--ink); }
+body { font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; }
+button, input, select { font: inherit; color: inherit; }
+a { color: inherit; }
+.num { font-variant-numeric: tabular-nums; }
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px; }
+.muted { color: var(--ink3); }
+.faint { color: var(--ink4); }
+.pos { color: var(--pos); }
+.neg { color: var(--neg); }
+.kicker { font-size: 11px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; color: var(--ink3); }
+.hidden { display: none !important; }
+
+.top { position: sticky; top: 0; z-index: 20; min-height: 60px; display: flex; align-items: center; gap: 14px; padding: 0 20px; background: var(--bg); border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.brand { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+.brand b { font-size: 15px; font-weight: 500; letter-spacing: .14em; }
+.brand span { font-size: 13px; color: var(--ink3); }
+.spacer { flex: 1; }
+.pill { height: 24px; padding: 0 9px; border-radius: 12px; border: 1px solid var(--line); display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ink3); white-space: nowrap; }
+.pill .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ink4); }
+.pill.live .dot { background: var(--pos); }
+.pill.demo .dot { background: var(--gold); }
+.iconbtn { width: 34px; height: 34px; border-radius: var(--r); border: 1px solid transparent; background: transparent; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; color: var(--ink3); }
+.iconbtn:hover { background: var(--surface); color: var(--ink); }
+.iconbtn:disabled { opacity: .4; cursor: default; }
+.toplink { font-size: 13px; color: var(--ink3); text-decoration: none; }
+.toplink:hover { color: var(--ink); }
+.updated { font-size: 12px; color: var(--ink4); white-space: nowrap; }
+
+.banner { margin: 14px 20px 0; padding: 11px 14px; border: 1px solid var(--line); border-left: 3px solid var(--gold); border-radius: var(--r); background: var(--surface); display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 13px; color: var(--ink2); }
+.alert { margin: 14px 20px 0; padding: 10px 14px; border-radius: var(--r); background: var(--negBg); color: var(--neg); font-size: 13px; }
+
+.wrap { max-width: 1400px; margin: 0 auto; padding: 18px 20px 60px; display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 18px; align-items: start; }
+.card { border: 1px solid var(--line); border-radius: 12px; background: var(--bg); min-width: 0; }
+.card-h { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--hair); flex-wrap: wrap; }
+.card-b { padding: 16px; }
+.kpis { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; margin-bottom: 18px; }
+.kpi { border: 1px solid var(--line); border-radius: 12px; padding: 13px 15px; }
+.kpi .v { font-size: 20px; letter-spacing: -.02em; margin-top: 6px; white-space: nowrap; }
+.kpi .s { font-size: 12px; color: var(--ink3); margin-top: 2px; }
+
+.btn { height: 34px; padding: 0 14px; border-radius: var(--r); border: 1px solid var(--line); background: var(--bg); cursor: pointer; font-size: 13px; font-weight: 500; color: var(--ink2); display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
+.btn:hover { border-color: var(--ink3); color: var(--ink); }
+.btn.primary { background: var(--ink); color: var(--onInk); border-color: var(--ink); }
+.btn.danger { color: var(--neg); border-color: var(--neg); }
+.btn.danger.fill { background: var(--neg); color: #fff; }
+.btn:disabled { opacity: .4; cursor: default; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; }
+.seg button { height: 30px; padding: 0 12px; border: none; background: transparent; cursor: pointer; font-size: 12.5px; color: var(--ink3); }
+.seg button.on { background: var(--sel); color: var(--ink); font-weight: 500; }
+input.in { height: 32px; border: 1px solid var(--line); border-radius: var(--r); background: var(--bg); padding: 0 9px; min-width: 0; }
+input.in:focus { outline: none; border-color: var(--ink3); }
+label.f { display: flex; flex-direction: column; gap: 6px; }
+label.f > span { font-size: 11.5px; font-weight: 500; letter-spacing: .04em; text-transform: uppercase; color: var(--ink3); }
+
+.tbl-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; }
+th { text-align: left; font-size: 11px; font-weight: 500; letter-spacing: .06em; text-transform: uppercase; color: var(--ink3); padding: 10px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; user-select: none; }
+th.sort { cursor: pointer; }
+th.sort:hover { color: var(--ink); }
+td { padding: 10px 10px; border-bottom: 1px solid var(--hair); white-space: nowrap; vertical-align: middle; }
+th.r, td.r { text-align: right; }
+tbody tr.on { background: var(--surface); }
+.empty { padding: 40px 16px; text-align: center; color: var(--ink3); }
+.tgt { display: flex; flex-direction: column; gap: 2px; min-width: 120px; }
+.tgt .l { font-weight: 500; max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
+.copyaddr { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; color: var(--ink3); }
+.copyaddr:hover { color: var(--ink); }
+.sw { width: 34px; height: 20px; border-radius: 10px; background: var(--sel); border: none; position: relative; cursor: pointer; padding: 0; transition: background .15s; }
+.sw::after { content: ""; position: absolute; top: 3px; left: 3px; width: 14px; height: 14px; border-radius: 50%; background: var(--ink4); transition: left .15s, background .15s; }
+.sw.on { background: var(--posBg); }
+.sw.on::after { left: 17px; background: var(--pos); }
+.sw:disabled { opacity: .5; cursor: default; }
+.amt { border-bottom: 1px dashed var(--ink4); cursor: pointer; }
+.amt:hover { border-bottom-color: var(--ink); }
+.linkbtn { background: none; border: none; padding: 0; cursor: pointer; color: var(--ink3); font-size: 12.5px; }
+.linkbtn:hover { color: var(--ink); }
+.linkbtn.neg:hover { color: var(--neg); }
+.st { display: inline-flex; height: 19px; padding: 0 6px; border-radius: 4px; font-size: 11px; font-weight: 500; align-items: center; }
+.st.landed { background: var(--posBg); color: var(--pos); }
+.st.failed, .st.missed { background: var(--negBg); color: var(--neg); }
+.st.skipped, .st.pending { background: var(--sel); color: var(--ink3); }
+.tabs { display: flex; gap: 20px; padding: 0 16px; border-bottom: 1px solid var(--hair); }
+.tabs button { background: none; border: none; padding: 12px 0 10px; cursor: pointer; color: var(--ink3); border-bottom: 2px solid transparent; font-size: 13.5px; }
+.tabs button.on { color: var(--ink); font-weight: 500; border-bottom-color: var(--gold); }
+.side { position: sticky; top: 78px; max-height: calc(100vh - 96px); display: flex; flex-direction: column; }
+.side-b { overflow-y: auto; padding: 4px 16px 16px; }
+.item { padding: 11px 0; border-bottom: 1px solid var(--hair); display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; }
+.item .a { font-weight: 500; }
+.item .b { font-size: 12px; color: var(--ink3); }
+.item .full { grid-column: 1 / -1; }
+.sum { display: flex; gap: 18px; flex-wrap: wrap; font-size: 13px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.err { color: var(--neg); font-size: 13px; }
+.skel { height: 14px; border-radius: 4px; background: linear-gradient(90deg, var(--surface), var(--sel), var(--surface)); background-size: 200% 100%; animation: sk 1.2s linear infinite; }
+@keyframes sk { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+
+dialog { border: 1px solid var(--line); border-radius: 12px; padding: 0; background: var(--bg); color: var(--ink); width: min(500px, calc(100vw - 24px)); max-height: calc(100vh - 24px); overflow-y: auto; box-shadow: 0 20px 48px var(--shadow); }
+dialog::backdrop { background: var(--overlay); }
+.dlg { padding: 22px 24px; display: flex; flex-direction: column; gap: 14px; }
+.dlg h2 { margin: 0; font-size: 19px; font-weight: 500; letter-spacing: -.01em; }
+.dlg p { margin: 0; color: var(--ink2); font-size: 13.5px; }
+.dlg-f { display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; padding-top: 4px; }
+.check { display: flex; align-items: flex-start; gap: 9px; font-size: 13.5px; cursor: pointer; }
+.toast { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); background: var(--ink); color: var(--onInk); padding: 10px 16px; border-radius: 10px; font-size: 13px; z-index: 60; max-width: calc(100vw - 32px); box-shadow: 0 8px 24px var(--shadow); }
+
+@media (max-width: 1100px) {
+  .wrap { grid-template-columns: minmax(0, 1fr); }
+  .side { position: static; max-height: none; }
+}
+@media (max-width: 720px) {
+  .top { padding: 8px 12px; gap: 8px; }
+  .brand span, .toplink, .updated { display: none; }
+  .wrap { padding: 12px 12px 48px; }
+  .banner, .alert { margin: 10px 12px 0; }
+  .col-opt { display: none; }
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="https://blizz.id/ai" target="_blank" rel="noopener" id="brand"></a>
+  <div id="periodSeg"></div>
+  <div class="spacer"></div>
+  <span class="updated" id="updated"></span>
+  <button class="iconbtn" id="refreshBtn" title="Refresh" aria-label="Refresh"></button>
+  <span class="pill" id="modePill"><span class="dot"></span><span id="modeText">Demo</span></span>
+  <a class="toplink" href="https://github.com/blizz-ai/blizz-skills" target="_blank" rel="noopener">GitHub</a>
+  <button class="iconbtn" id="themeBtn" title="Theme" aria-label="Toggle theme"></button>
+  <button class="btn" id="settingsBtn" style="height:32px;padding:0 12px">API key</button>
+</header>
+<div class="banner hidden" id="demoBanner"></div>
+<div class="alert hidden" id="alert"></div>
+<div class="wrap">
+  <div style="min-width:0">
+    <div class="kpis" id="kpis"></div>
+    <section class="card">
+      <div class="card-h">
+        <div>
+          <div class="kicker" id="ordersTitle">Copy orders</div>
+          <div class="muted" style="font-size:12.5px;margin-top:3px">PnL counts closed rounds minus fees and tips; open positions are on the right.</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn" id="resumeAllBtn">Resume all</button>
+          <button class="btn danger" id="pauseAllBtn">Pause all</button>
+        </div>
+      </div>
+      <div class="tbl-wrap" id="orders"><div class="empty">Loading…</div></div>
+    </section>
+  </div>
+  <aside class="card side" id="side">
+    <div class="tabs" id="sideTabs"></div>
+    <div class="side-b" id="sideBody"></div>
+  </aside>
+</div>
+
+<dialog id="dlg"></dialog>
+<dialog id="settingsDlg"></dialog>
+<div class="toast hidden" id="toast"></div>
+
+<script>
+'use strict';
+
+// ——— storage, settings, API ———
+
+const STORE = { key: 'blizz.demo.key', base: 'blizz.demo.base', theme: 'blizz.demo.theme' };
+
+/** API base: the site itself when this page is served by Blizz, else production. */
+function defaultBase() {
+  const h = location.hostname;
+  const ours = (d) => h === d || h.endsWith('.' + d);
+  return ours('blizz.id') || ours('jizzus.xyz') ? location.origin : 'https://blizz.id';
+}
+
+const S = {
+  base: localStorage.getItem(STORE.base) || defaultBase(),
+  key: sessionStorage.getItem(STORE.key) || localStorage.getItem(STORE.key) || '',
+};
+const isDemo = () => !S.key;
+
+class ApiError extends Error {
+  constructor(status, code, description, field, retryAfter) {
+    super(description || code);
+    this.status = status; this.code = code; this.description = description || ''; this.field = field || null; this.retryAfter = retryAfter || null;
+  }
+}
+
+/** Blizz REST v1 call. The key goes only into the Authorization header. */
+async function api(method, path, body) {
+  const headers = { Authorization: 'Bearer ' + S.key };
+  if (body !== undefined) headers['Content-Type'] = 'application/json';
+  let res;
+  try {
+    res = await fetch(S.base.replace(/\/+$/, '') + '/api/v1' + path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
+  } catch (e) {
+    throw new ApiError(0, 'network', 'network error');
+  }
+  const text = await res.text();
+  let data = null;
+  try { data = text ? JSON.parse(text) : null; } catch (e) { data = null; }
+  if (!res.ok) {
+    const retry = Number(res.headers.get('Retry-After')) || null;
+    throw new ApiError(res.status, (data && data.error) || 'http_' + res.status, (data && data.error_description) || res.statusText, data && data.field, retry);
+  }
+  return data;
+}
+
+/** A failure in words a person can act on. `need` names the access this call requires. */
+function explain(e, need) {
+  if (!(e instanceof ApiError)) return String(e && e.message || e);
+  switch (e.status) {
+    case 0: return 'Could not reach ' + S.base + ' — check the API address in Settings (network or CORS).';
+    case 401: return 'The API key is missing, wrong or revoked. Paste a valid key in Settings.';
+    case 403: return 'This key has no access for that (' + e.description + ').' + (need ? ' Create a key with “' + need + '” on Blizz → API.' : '');
+    case 429: return 'Rate limited: ' + e.description + '. Retry in ' + (e.retryAfter || 1) + ' s.';
+    case 503: return 'Busy or unavailable right now (' + e.description + '). Retry in a moment.';
+    default: return e.code + ': ' + e.description + (e.field ? ' (field: ' + e.field + ')' : '');
+  }
+}
+
+// ——— DOM helpers (text only, never HTML from data) ———
+
+function h(tag, props, ...kids) {
+  const el = document.createElement(tag);
+  if (props) {
+    for (const [k, v] of Object.entries(props)) {
+      if (v === null || v === undefined || v === false) continue;
+      if (k === 'class') el.className = v;
+      else if (k === 'style') el.style.cssText = v;
+      else if (k.startsWith('on') && typeof v === 'function') el.addEventListener(k.slice(2), v);
+      else if (k === 'value' || k === 'checked' || k === 'disabled') el[k] = v;
+      else el.setAttribute(k, v === true ? '' : String(v));
+    }
+  }
+  for (const kid of kids.flat(Infinity)) {
+    if (kid === null || kid === undefined || kid === false) continue;
+    el.append(kid instanceof Node ? kid : String(kid));
+  }
+  return el;
+}
+const $ = (id) => document.getElementById(id);
+const clear = (el) => { while (el.firstChild) el.removeChild(el.firstChild); return el; };
+
+const ICONS = {
+  copy: 'M5.5 5.5h7v7h-7zM3.5 10.5h-0.5a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v.5',
+  ext: 'M6 3H3.5v9.5H13V10M9 3h4v4M13 3 7.5 8.5',
+  moon: 'M13 9.5A5.5 5.5 0 0 1 6.5 3a5.5 5.5 0 1 0 6.5 6.5z',
+  sun: 'M8 5a3 3 0 1 0 0 6 3 3 0 0 0 0-6zM8 1v1.5M8 13.5V15M1 8h1.5M13.5 8H15M3 3l1 1M12 12l1 1M3 13l1-1M12 4l1-1',
+  refresh: 'M13.5 8a5.5 5.5 0 1 1-1.6-3.9M13.5 2.5v3h-3',
+  logo: 'M8 1v14M1.9 4.5l12.2 7M1.9 11.5l12.2-7',
+};
+function icon(name, size) {
+  const ns = 'http://www.w3.org/2000/svg';
+  const s = document.createElementNS(ns, 'svg');
+  s.setAttribute('viewBox', '0 0 16 16'); s.setAttribute('width', size || 15); s.setAttribute('height', size || 15); s.setAttribute('aria-hidden', 'true');
+  const p = document.createElementNS(ns, 'path');
+  p.setAttribute('d', ICONS[name]); p.setAttribute('fill', 'none'); p.setAttribute('stroke', 'currentColor');
+  p.setAttribute('stroke-width', '1.5'); p.setAttribute('stroke-linecap', 'round'); p.setAttribute('stroke-linejoin', 'round');
+  s.append(p);
+  return s;
+}
+
+let toastTimer = 0;
+function toast(msg) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.remove('hidden');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.add('hidden'), 3600);
+}
+function copyText(text, what) {
+  (navigator.clipboard ? navigator.clipboard.writeText(text) : Promise.reject()).then(() => toast((what || 'Copied') + ' ✓'), () => toast('Copy failed'));
+}
+
+// ——— formatting ———
+
+const short = (a) => (a && a.length > 12 ? a.slice(0, 4) + '…' + a.slice(-4) : a || '—');
+const num = (v) => (v === null || v === undefined || v === '' ? null : typeof v === 'string' ? Number(v) : v);
+function sol(v, signed) {
+  const n = num(v);
+  if (n === null || !isFinite(n)) return '—';
+  if (n === 0) return '0';
+  const a = Math.abs(n);
+  const d = a >= 100 ? 1 : a >= 1 ? 2 : a >= 0.01 ? 3 : 4;
+  return (n < 0 ? '−' : signed && n > 0 ? '+' : '') + a.toFixed(d);
+}
+const share = (v) => (v === null || v === undefined || !isFinite(v) ? '—' : Math.round(v * 100) + '%');
+const pct = (v, signed) => (v === null || v === undefined || !isFinite(v) ? '—' : (v < 0 ? '−' : signed && v > 0 ? '+' : '') + Math.abs(v).toFixed(Math.abs(v) >= 100 ? 0 : 1) + '%');
+function dur(s) {
+  if (s === null || s === undefined || !isFinite(s)) return '—';
+  s = Math.max(0, s);
+  if (s < 60) return Math.round(s) + 's';
+  if (s < 3600) return Math.round(s / 60) + 'm';
+  if (s < 86400) return Math.round(s / 3600) + 'h';
+  return Math.round(s / 86400) + 'd';
+}
+const ago = (iso) => { const t = Date.parse(iso); return isFinite(t) ? dur((Date.now() - t) / 1000) + ' ago' : '—'; };
+const tone = (n) => { n = num(n); return n > 0 ? 'pos' : n < 0 ? 'neg' : ''; };
+const usd = (v) => (v === null || v === undefined || !isFinite(v) ? '—' : v >= 1e6 ? '$' + (v / 1e6).toFixed(2) + 'M' : v >= 1e3 ? '$' + (v / 1e3).toFixed(1) + 'K' : '$' + Math.round(v));
+
+// ——— demo data (deterministic, clearly sample) ———
+
+function rng(seed) {
+  let x = 2166136261;
+  for (let i = 0; i < seed.length; i++) x = Math.imul(x ^ seed.charCodeAt(i), 16777619);
+  return () => {
+    x = Math.imul(x ^ (x >>> 15), 2246822507);
+    x = Math.imul(x ^ (x >>> 13), 3266489909);
+    x ^= x >>> 16;
+    return (x >>> 0) / 4294967296;
+  };
+}
+const B58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+const fakeAddr = (r, n) => Array.from({ length: n || 44 }, () => B58[Math.floor(r() * 58)]).join('');
+const COINS = ['FROGE', 'BONKER', 'CATNIP', 'MOONRAT', 'SOLDOG', 'GIGACAT', 'PUMPY', 'HODLR', 'ZOOMER', 'NEKO', 'BLIP', 'TURBO', 'COPIUM', 'LAMBO', 'WAGMI', 'SNOWY', 'ICEPEPE', 'YETI'];
+const s9 = (x) => String(Math.round(x * 1e4) / 1e4);
+
+const DEMO = (() => {
+  const r = rng('blizz-demo-cockpit');
+  const wallets = [{ address: fakeAddr(r), label: 'Main' }, { address: fakeAddr(r), label: 'Copy 2' }];
+  const labels = ['scout: tier2', 'swing pro', 'night owl', 'dca grinder', 'fast hands', 'old whale', null];
+  const orders = labels.map((label, i) => {
+    const amount = [0.1, 0.25, 0.05, 0.2, 0.1, 0.5, 0.15][i];
+    return {
+      id: 2400 + i, target: fakeAddr(r), wallet: wallets[i % 2].address, label, state: i === 3 ? 'paused' : 'active',
+      buy: { amount_sol: String(amount), slippage_pct: 20, slippage_sol: null, once_per_token: false, target_amount_sol: { min: null, max: null }, market_cap_usd: { min: null, max: null }, tip_sol: '0.001', priority_fee_sol: '0.0005' },
+      sell: { slippage_pct: 10, tip_sol: '0.001', priority_fee_sol: '0.0005', auto: i === 2 ? [{ type: 'sl', trigger_pct: 40, size_pct: 100 }] : [], timed: [] },
+      filters: { dexes: ['pump_fun', 'pump_swap'], quote: 'all', copy_sells: i !== 2, reverse: false, skip_add_ons: false, skip_creator_launch: false, anti_pvp: i === 4 ? { hold_sec: 30, ban_sec: 3600 } : null },
+      created_at: new Date(Date.now() - (5 + i * 2) * 86400e3).toISOString(), updated_at: new Date(Date.now() - i * 3600e3).toISOString(),
+    };
+  });
+  const positions = [];
+  for (let i = 0; i < 5; i++) {
+    const o = orders[i % orders.length];
+    const inv = 0.05 + r() * 0.4;
+    const val = inv * (0.4 + r() * 1.5);
+    positions.push({ wallet: o.wallet, wallet_label: wallets.find((w) => w.address === o.wallet).label, mint: fakeAddr(r, 43) + 'p', symbol: COINS[Math.floor(r() * COINS.length)], name: null,
+      order: { kind: 'copy', target: o.target, label: o.label }, tokens: Math.round(inv * 2e6), invested_sol: s9(inv), value_sol: s9(val), pnl_sol: s9(val - inv), pnl_pct: ((val - inv) / inv) * 100,
+      mc_usd: Math.round(20000 + r() * 400000), opened_at: new Date(Date.now() - r() * 20 * 3600e3).toISOString(), sellable: true });
+  }
+  return { wallets, orders, positions };
+})();
+
+function demoStats(period) {
+  const k = { '1d': 1, '7d': 6, '30d': 22 }[period] || 1;
+  const r = rng('stats' + period);
+  const edge = [0.18, 0.11, -0.09, 0.04, -0.02, 0.07, 0.14];
+  const rows = DEMO.orders.map((o, i) => {
+    const rounds = Math.max(0, Math.round((3 + r() * 9) * k * (o.state === 'paused' ? 0.2 : 1)));
+    const won = Math.round(rounds * Math.min(0.9, Math.max(0.1, 0.5 + edge[i] * 2 + (r() - 0.5) * 0.1)));
+    const copied = rounds * 2 + Math.round(r() * 3);
+    const missed = i === 4 ? Math.round(copied * 0.4) : Math.round(copied * r() * 0.08);
+    const pnl = Number(o.buy.amount_sol) * rounds * edge[i] * (0.8 + r() * 0.4);
+    const fees = copied * 0.00075;
+    return {
+      target: o.target, label: o.label, wallet: o.wallet, state: o.state, copied, missed,
+      capture_pct: copied + missed ? (copied / (copied + missed)) * 100 : null, slot0_pct: 70 + r() * 25,
+      pnl_sol: s9(pnl - fees), pnl_pct: rounds ? ((pnl - fees) / (Number(o.buy.amount_sol) * rounds)) * 100 : null, fees_sol: s9(fees),
+      rounds, won_rounds: won, win_rate: rounds ? won / rounds : null,
+      target_pnl_sol: s9(pnl * (i === 2 ? -3 : 1.6)), target_pnl_pct: rounds ? edge[i] * 160 : null,
+      last_target_trade_at: new Date(Date.now() - r() * 3 * 3600e3).toISOString(),
+      last_copy_at: o.state === 'paused' ? new Date(Date.now() - 30 * 3600e3).toISOString() : new Date(Date.now() - r() * 3 * 3600e3).toISOString(),
+    };
+  });
+  const sum = (f) => rows.reduce((s, x) => s + num(x[f] || 0), 0);
+  const rounds = sum('rounds'), won = sum('won_rounds'), copied = sum('copied'), missed = sum('missed');
+  return { period, totals: { orders: rows.length, active: rows.filter((x) => x.state === 'active').length, copied, missed, capture_pct: copied + missed ? (copied / (copied + missed)) * 100 : null,
+    pnl_sol: s9(sum('pnl_sol')), fees_sol: s9(sum('fees_sol')), rounds, won_rounds: won, win_rate: rounds ? won / rounds : null }, orders: rows };
+}
+
+function demoTrades(target, period) {
+  const r = rng('trades' + target + period);
+  const trades = [];
+  const coins = new Map();
+  for (let i = 0; i < 24; i++) {
+    const sym = COINS[Math.floor(r() * 8)];
+    const side = r() < 0.55 ? 'buy' : 'sell';
+    const roll = r();
+    const status = roll < 0.74 ? 'landed' : roll < 0.84 ? 'skipped' : roll < 0.93 ? 'missed' : 'failed';
+    const reason = status === 'skipped' ? ['buy_target_range', 'buy_token_once', 'skip_add_ons', 'market_cap_range'][Math.floor(r() * 4)] : status === 'failed' ? 'slippage' : null;
+    trades.push({ at: new Date(Date.now() - i * (period === '1d' ? 2400e3 : 15000e3) - r() * 600e3).toISOString(), side, mint: sym, symbol: sym, status, reason, via: r() < 0.9 ? 'copy' : 'limit',
+      our_sol: status === 'landed' || status === 'failed' ? s9(0.05 + r() * 0.2) : null, our_signature: null, target_sol: s9(0.3 + r() * 3), target_signature: null,
+      slot_lag: status === 'landed' ? (r() < 0.8 ? 0 : 1) : null, price_delta_pct: status === 'landed' ? (r() - 0.3) * 4 : null });
+    const c = coins.get(sym) || { mint: sym, symbol: sym, pnl_sol: 0, rounds: 0, copied: 0, failed: 0, missed: 0, skipped: 0, open: false };
+    if (status === 'landed') c.copied++; else c[status]++;
+    if (side === 'sell' && status === 'landed') { c.rounds++; c.pnl_sol += (r() - 0.4) * 0.2; }
+    coins.set(sym, c);
+  }
+  return { target, period, trades, coins: [...coins.values()].map((c) => ({ ...c, pnl_sol: s9(c.pnl_sol), open: r() < 0.3 })) };
+}
+
+function demoPositions() {
+  const ps = DEMO.positions;
+  const tot = (f) => ps.reduce((s, p) => s + num(p[f]), 0);
+  const inv = tot('invested_sol'), val = tot('value_sol');
+  return { positions: ps, totals: { positions: ps.length, invested_sol: s9(inv), value_sol: s9(val), pnl_sol: s9(val - inv), pnl_pct: inv ? ((val - inv) / inv) * 100 : null } };
+}
+
+// ——— state ———
+
+const PERIODS = [['1d', '1D'], ['7d', '7D'], ['30d', '30D']];
+const ST = {
+  period: localStorage.getItem('blizz.cockpit.period') || '1d',
+  stats: null, orders: [], positions: null, positionsErr: null, myWallets: new Map(),
+  sel: null, tab: 'positions', trades: null, tradesErr: null,
+  sort: { col: 'pnl', dir: -1 }, updatedAt: 0, busy: false, pauseUntil: 0, err: null, editing: null, editValue: null,
+};
+
+// ——— loading ———
+
+async function listOrders() {
+  if (isDemo()) return DEMO.orders;
+  let out = [], cursor = null;
+  for (let page = 0; page < 3; page++) {
+    const q = '/copy/orders?limit=500' + (cursor ? '&cursor=' + encodeURIComponent(cursor) : '');
+    const r = await api('GET', q);
+    out = out.concat(r.orders || []);
+    cursor = r.next_cursor;
+    if (!cursor) break;
+  }
+  return out;
+}
+
+async function refresh(force) {
+  if (ST.busy) return;
+  if (!force && (document.hidden || document.querySelector('dialog[open]') || ST.editing)) return;
+  if (Date.now() < ST.pauseUntil) return;
+  ST.busy = true;
+  $('refreshBtn').disabled = true;
+  try {
+    const [stats, orders] = await Promise.all([
+      isDemo() ? Promise.resolve(demoStats(ST.period)) : api('GET', '/copy/stats?period=' + ST.period),
+      listOrders(),
+    ]);
+    ST.stats = stats; ST.orders = orders; ST.err = null;
+    try {
+      ST.positions = isDemo() ? demoPositions() : await api('GET', '/account/positions');
+      ST.positionsErr = null;
+    } catch (e) { ST.positions = null; ST.positionsErr = e; }
+    if (!isDemo() && !ST.myWallets.size) {
+      try {
+        const w = await api('GET', '/account/wallets');
+        for (const x of w.wallets || []) ST.myWallets.set(x.address, x.label || '');
+      } catch (e) { /* no Account · read — wallets show as addresses */ }
+    } else if (isDemo()) {
+      for (const w of DEMO.wallets) ST.myWallets.set(w.address, w.label);
+    }
+    if (ST.sel && ST.tab === 'trades') await loadTrades();
+    ST.updatedAt = Date.now();
+  } catch (e) {
+    ST.err = e;
+    if (e instanceof ApiError && e.status === 429) ST.pauseUntil = Date.now() + (e.retryAfter || 5) * 1000;
+  } finally {
+    ST.busy = false;
+    $('refreshBtn').disabled = false;
+    render();
+  }
+}
+
+async function loadTrades() {
+  try {
+    ST.trades = isDemo() ? demoTrades(ST.sel, ST.period) : await api('GET', '/copy/orders/' + encodeURIComponent(ST.sel) + '/trades?period=' + ST.period + '&limit=100');
+    ST.tradesErr = null;
+  } catch (e) {
+    ST.trades = null; ST.tradesErr = e;
+    if (e instanceof ApiError && e.status === 429) ST.pauseUntil = Date.now() + (e.retryAfter || 5) * 1000;
+  }
+}
+
+// ——— writes ———
+
+function needKey() {
+  if (!isDemo()) return false;
+  toast('Demo mode: changes need an API key with “Copy orders · write”.');
+  return true;
+}
+
+/** On/off. Pausing is safe and immediate; resuming trades real SOL, so it asks first. */
+async function toggle(row) {
+  if (needKey()) return;
+  const order = row.order;
+  const on = order.state !== 'active';
+  if (on) {
+    const ok = await confirmBox({ title: 'Resume copying?', text: 'Blizz starts copying ' + (row.label || short(row.target)) + ' again, buying up to ' + order.buy.amount_sol + ' SOL per copied buy from ' + walletName(row.wallet) + '.', ok: 'Resume' });
+    if (!ok) return;
+  }
+  const prev = order.state;
+  order.state = on ? 'active' : 'paused';
+  render();
+  try {
+    await api('PATCH', '/copy/orders/' + encodeURIComponent(row.target), { state: order.state });
+    toast((on ? 'Resumed ' : 'Paused ') + (row.label || short(row.target)));
+    await refresh(true);
+  } catch (e) {
+    order.state = prev;
+    toast(explain(e, 'Copy orders · write'));
+    render();
+  }
+}
+
+async function setAmount(row, value) {
+  if (needKey()) return;
+  const v = value.trim().replace(',', '.');
+  if (!/^\d+(\.\d{1,9})?$/.test(v) || Number(v) <= 0) { toast('Enter an amount in SOL, e.g. 0.1'); return; }
+  const ok = await confirmBox({ title: 'Change the size?', text: 'Most to spend per copied buy for ' + (row.label || short(row.target)) + ': ' + (row.order ? row.order.buy.amount_sol : '?') + ' → ' + v + ' SOL.', ok: 'Change' });
+  if (!ok) return;
+  try {
+    await api('PATCH', '/copy/orders/' + encodeURIComponent(row.target), { buy: { amount_sol: v } });
+    row.order.buy.amount_sol = v;
+    toast('Size changed to ' + v + ' SOL');
+    render();
+    await refresh(true);
+  } catch (e) {
+    toast(explain(e, 'Copy orders · write'));
+    render();
+  }
+}
+
+async function remove(row) {
+  if (needKey()) return;
+  const ok = await confirmBox({ title: 'Delete this copy order?', text: 'Copying ' + (row.label || short(row.target)) + ' stops for good. Open positions stay in the wallet. Pausing keeps the order and its TP/SL — consider that instead.', ok: 'Delete', danger: true });
+  if (!ok) return;
+  try {
+    await api('DELETE', '/copy/orders/' + encodeURIComponent(row.target));
+    toast('Deleted');
+    ST.orders = ST.orders.filter((o) => o.target !== row.target);
+    if (ST.sel === row.target) { ST.sel = null; ST.trades = null; ST.tab = 'positions'; }
+    render();
+    await refresh(true);
+  } catch (e) { toast(explain(e, 'Copy orders · write')); }
+}
+
+async function setAll(state) {
+  if (needKey()) return;
+  const n = ST.orders.filter((o) => o.state !== state).length;
+  if (!n) { toast(state === 'paused' ? 'Everything is already paused' : 'Everything is already active'); return; }
+  const ok = state === 'paused'
+    ? await confirmBox({ title: 'Pause all copy orders?', text: 'Kill switch: ' + n + ' order' + (n === 1 ? '' : 's') + ' stop copying new trades. Open positions keep their TP/SL and timers.', ok: 'Pause all', danger: true })
+    : await confirmBox({ title: 'Resume all copy orders?', text: n + ' paused order' + (n === 1 ? '' : 's') + ' start copying again with real SOL.', ok: 'Resume all' });
+  if (!ok) return;
+  try {
+    const r = await api('PATCH', '/copy/orders', { all: true, patch: { state } });
+    const failed = new Set((r.failed || []).map((f) => f.target));
+    for (const o of ST.orders) if (!failed.has(o.target)) o.state = state;
+    toast((state === 'paused' ? 'Paused ' : 'Resumed ') + r.done + (failed.size ? ', failed ' + failed.size : ''));
+    render();
+    await refresh(true);
+  } catch (e) { toast(explain(e, 'Copy orders · write')); }
+}
+
+function confirmBox({ title, text, ok, danger }) {
+  return new Promise((resolve) => {
+    const dlg = $('dlg');
+    let answer = false;
+    const done = (v) => { answer = v; dlg.close(); };
+    dlg.onclose = () => resolve(answer);
+    clear(dlg).append(h('div', { class: 'dlg' },
+      h('h2', null, title), h('p', null, text),
+      h('div', { class: 'dlg-f' },
+        h('button', { class: 'btn', onclick: () => done(false) }, 'Cancel'),
+        h('button', { class: 'btn ' + (danger ? 'danger fill' : 'primary'), onclick: () => done(true) }, ok))));
+    dlg.showModal();
+  });
+}
+
+// ——— render ———
+
+const walletName = (a) => ST.myWallets.get(a) || short(a);
+
+function rowsJoined() {
+  const stats = new Map(((ST.stats && ST.stats.orders) || []).map((s) => [s.target, s]));
+  const rows = ST.orders.map((o) => ({ ...(stats.get(o.target) || { copied: 0, missed: 0, capture_pct: null, slot0_pct: null, pnl_sol: '0', pnl_pct: null, rounds: 0, won_rounds: 0, win_rate: null, target_pnl_sol: null, last_copy_at: null }),
+    target: o.target, label: o.label, wallet: o.wallet, state: o.state, order: o }));
+  const key = {
+    pnl: (x) => num(x.pnl_sol) || 0, rounds: (x) => x.rounds || 0, win: (x) => (x.win_rate === null ? -1 : x.win_rate),
+    capture: (x) => (x.capture_pct === null ? -1 : x.capture_pct), last: (x) => Date.parse(x.last_copy_at) || 0, amount: (x) => num(x.order.buy.amount_sol) || 0,
+  }[ST.sort.col];
+  rows.sort((a, b) => (key(a) - key(b)) * ST.sort.dir);
+  return rows;
+}
+
+function render() {
+  $('updated').textContent = ST.updatedAt ? 'updated ' + dur((Date.now() - ST.updatedAt) / 1000) + ' ago' : '';
+  const al = $('alert');
+  al.classList.toggle('hidden', !ST.err);
+  al.textContent = ST.err ? explain(ST.err, 'Copy orders · read') : '';
+  renderKpis();
+  renderOrders();
+  renderSide();
+}
+
+function renderKpis() {
+  const t = (ST.stats && ST.stats.totals) || null;
+  const p = ST.positions && ST.positions.totals;
+  const kpi = (k, v, s, cls) => h('div', { class: 'kpi' }, h('div', { class: 'kicker' }, k), h('div', { class: 'v num ' + (cls || '') }, v), h('div', { class: 's' }, s));
+  clear($('kpis')).append(
+    kpi('PnL · ' + ST.period, t ? sol(t.pnl_sol, true) + ' SOL' : '—', t ? 'fees ' + sol(t.fees_sol) + ' SOL' : '', t ? tone(t.pnl_sol) : ''),
+    kpi('Win rate', t ? share(t.win_rate) : '—', t ? t.won_rounds + ' of ' + t.rounds + ' rounds' : ''),
+    kpi('Copied', t ? String(t.copied) : '—', t ? t.missed + ' missed' : ''),
+    kpi('Capture', t ? pct(t.capture_pct) : '—', 'copied ÷ (copied + missed)'),
+    kpi('Active orders', t ? t.active + ' / ' + t.orders : '—', 'on / total'),
+    kpi('Open positions', p ? sol(p.value_sol) + ' SOL' : '—', p ? p.positions + ' open · ' + sol(p.pnl_sol, true) + ' SOL' : ST.positionsErr ? 'needs Account · read' : '', p ? tone(p.pnl_sol) : ''));
+}
+
+function sortTh(col, label, cls) {
+  const on = ST.sort.col === col;
+  return h('th', { class: 'sort ' + (cls || ''), onclick: () => { ST.sort = { col, dir: on ? -ST.sort.dir : -1 }; renderOrders(); } }, label + (on ? (ST.sort.dir < 0 ? ' ↓' : ' ↑') : ''));
+}
+
+function renderOrders() {
+  const box = clear($('orders'));
+  $('ordersTitle').textContent = 'Copy orders · ' + ST.orders.length;
+  if (!ST.stats && !ST.err) { box.append(h('div', { style: 'padding:16px;display:grid;gap:12px' }, [1, 2, 3, 4].map((i) => h('div', { class: 'skel', style: 'width:' + (95 - i * 9) + '%' })))); return; }
+  if (!ST.orders.length) { box.append(h('div', { class: 'empty' }, ST.err ? 'Nothing to show.' : 'No copy orders yet. Find a wallet in the Wallet Analyst demo or on Blizz → Discover.')); return; }
+  const rows = rowsJoined().map((x) => {
+    const amount = x.order.buy.amount_sol;
+    const amountCell = ST.editing === x.target
+      ? (() => {
+          const input = h('input', { class: 'in num', value: ST.editValue === null ? amount : ST.editValue, style: 'width:80px',
+            oninput: (e) => { ST.editValue = e.target.value; },
+            onkeydown: (e) => { if (e.key === 'Enter') { ST.editing = null; setAmount(x, input.value); } if (e.key === 'Escape') { ST.editing = null; renderOrders(); } } });
+          setTimeout(() => input.focus(), 0);
+          return h('span', { style: 'display:inline-flex;gap:6px;align-items:center' }, input,
+            h('button', { class: 'linkbtn', onclick: () => { ST.editing = null; setAmount(x, input.value); } }, 'Save'),
+            h('button', { class: 'linkbtn', onclick: () => { ST.editing = null; renderOrders(); } }, '✕'));
+        })()
+      : h('span', { class: 'amt num', title: 'Most to spend per copied buy — click to change', onclick: () => { if (needKey()) return; ST.editing = x.target; ST.editValue = null; renderOrders(); } }, sol(amount) + ' SOL');
+    return h('tr', { class: ST.sel === x.target ? 'on' : '' },
+      h('td', null, h('div', { class: 'tgt' },
+        h('span', { class: 'l' }, x.label || 'No label'),
+        h('span', { class: 'copyaddr mono', title: 'Copy target address', onclick: () => copyText(x.target, 'Target copied') }, short(x.target), icon('copy', 11)))),
+      h('td', { class: 'col-opt muted' }, walletName(x.wallet)),
+      h('td', null, h('button', { class: 'sw' + (x.state === 'active' ? ' on' : ''), role: 'switch', 'aria-checked': x.state === 'active' ? 'true' : 'false', title: x.state === 'active' ? 'Active — click to pause' : 'Paused — click to resume', onclick: () => toggle(x) })),
+      h('td', { class: 'r' }, amountCell),
+      h('td', { class: 'r num ' + tone(x.pnl_sol) }, sol(x.pnl_sol, true), x.pnl_pct !== null && x.pnl_pct !== undefined ? h('div', { class: 'faint', style: 'font-size:11.5px' }, pct(x.pnl_pct, true)) : null),
+      h('td', { class: 'r num' }, x.won_rounds + '/' + x.rounds),
+      h('td', { class: 'r num' }, share(x.win_rate)),
+      h('td', { class: 'r num col-opt' }, pct(x.capture_pct)),
+      h('td', { class: 'r num col-opt ' + tone(x.target_pnl_sol) }, x.target_pnl_sol === null || x.target_pnl_sol === undefined ? '—' : sol(x.target_pnl_sol, true)),
+      h('td', { class: 'r num col-opt muted' }, x.last_copy_at ? ago(x.last_copy_at) : '—'),
+      h('td', { class: 'r' }, h('span', { style: 'display:inline-flex;gap:12px' },
+        h('button', { class: 'linkbtn', onclick: () => { ST.sel = x.target; ST.tab = 'trades'; ST.trades = null; ST.tradesErr = null; render(); loadTrades().then(render); } }, 'Trades'),
+        h('button', { class: 'linkbtn neg', onclick: () => remove(x) }, 'Delete'))));
+  });
+  box.append(h('table', null,
+    h('thead', null, h('tr', null, h('th', null, 'Target'), h('th', { class: 'col-opt' }, 'Wallet'), h('th', null, 'On'), sortTh('amount', 'Per buy', 'r'), sortTh('pnl', 'PnL, SOL', 'r'),
+      sortTh('rounds', 'Won', 'r'), sortTh('win', 'Win rate', 'r'), sortTh('capture', 'Capture', 'r col-opt'), h('th', { class: 'r col-opt' }, 'Target PnL'), sortTh('last', 'Last copy', 'r col-opt'), h('th'))),
+    h('tbody', null, rows)));
+}
+
+function renderSide() {
+  clear($('sideTabs')).append(
+    h('button', { class: ST.tab === 'positions' ? 'on' : '', onclick: () => { ST.tab = 'positions'; renderSide(); } }, 'Positions'),
+    h('button', { class: ST.tab === 'trades' ? 'on' : '', onclick: () => { ST.tab = 'trades'; renderSide(); if (ST.sel && !ST.trades) loadTrades().then(render); } }, 'Trades' + (ST.sel ? ' · ' + short(ST.sel) : '')));
+  const b = clear($('sideBody'));
+  if (ST.tab === 'positions') renderPositions(b); else renderTrades(b);
+}
+
+function renderPositions(b) {
+  if (ST.positionsErr) { b.append(h('div', { class: 'err', style: 'padding-top:12px' }, explain(ST.positionsErr, 'Account · read'))); return; }
+  if (!ST.positions) { b.append(h('div', { class: 'skel', style: 'margin-top:14px;width:80%' })); return; }
+  const t = ST.positions.totals;
+  b.append(h('div', { class: 'sum' },
+    h('span', null, h('span', { class: 'muted' }, 'In '), h('b', { class: 'num' }, sol(t.invested_sol))),
+    h('span', null, h('span', { class: 'muted' }, 'Now '), h('b', { class: 'num' }, sol(t.value_sol))),
+    h('span', null, h('span', { class: 'muted' }, 'PnL '), h('b', { class: 'num ' + tone(t.pnl_sol) }, sol(t.pnl_sol, true) + ' SOL'))));
+  if (!ST.positions.positions.length) { b.append(h('div', { class: 'empty' }, 'No open positions.')); return; }
+  for (const p of ST.positions.positions) {
+    b.append(h('div', { class: 'item' },
+      h('span', { class: 'a' }, h('a', { href: 'https://solscan.io/token/' + encodeURIComponent(p.mint), target: '_blank', rel: 'noopener', style: 'text-decoration:none' }, p.symbol || short(p.mint))),
+      h('span', { class: 'num ' + tone(p.pnl_sol) }, p.pnl_sol === null ? '—' : sol(p.pnl_sol, true) + ' SOL'),
+      h('span', { class: 'b full' }, (p.wallet_label || short(p.wallet)) + ' · ' + (p.order ? 'from ' + (p.order.label || short(p.order.target)) : 'manual') + ' · ' + ago(p.opened_at)),
+      h('span', { class: 'b full num' }, sol(p.invested_sol) + ' → ' + sol(p.value_sol) + ' SOL' + (p.pnl_pct === null ? '' : ' · ' + pct(p.pnl_pct, true)) + (p.mc_usd ? ' · MC ' + usd(p.mc_usd) : ''))));
+  }
+  b.append(h('div', { class: 'faint', style: 'font-size:12px;margin-top:10px' }, 'Sell positions on Blizz itself — the API cannot trade by hand.'));
+}
+
+function renderTrades(b) {
+  if (!ST.sel) { b.append(h('div', { class: 'empty' }, 'Press “Trades” on an order to see its trade feed.')); return; }
+  if (ST.tradesErr) { b.append(h('div', { class: 'err', style: 'padding-top:12px' }, explain(ST.tradesErr, 'Copy orders · read'))); return; }
+  if (!ST.trades) { b.append(h('div', { class: 'skel', style: 'margin-top:14px;width:80%' })); return; }
+  const coins = (ST.trades.coins || []).slice().sort((a, c) => num(c.pnl_sol) - num(a.pnl_sol));
+  if (coins.length) {
+    b.append(h('div', { class: 'kicker', style: 'margin-top:14px' }, 'Coins'));
+    for (const c of coins.slice(0, 8)) {
+      b.append(h('div', { class: 'item' },
+        h('span', { class: 'a' }, c.symbol || short(c.mint), c.open ? h('span', { class: 'faint', style: 'font-weight:400' }, ' · open') : null),
+        h('span', { class: 'num ' + tone(c.pnl_sol) }, c.pnl_sol === null ? '—' : sol(c.pnl_sol, true) + ' SOL'),
+        h('span', { class: 'b' }, c.copied + ' copied · ' + c.missed + ' missed · ' + c.failed + ' failed · ' + c.skipped + ' skipped'),
+        h('span', { class: 'b num' }, c.rounds + ' round' + (c.rounds === 1 ? '' : 's'))));
+    }
+  }
+  b.append(h('div', { class: 'kicker', style: 'margin-top:16px' }, 'Feed · ' + ST.trades.trades.length));
+  if (!ST.trades.trades.length) { b.append(h('div', { class: 'empty' }, 'No trades in this period.')); return; }
+  for (const t of ST.trades.trades) {
+    b.append(h('div', { class: 'item' },
+      h('span', { class: 'a' }, h('span', { class: t.side === 'buy' ? 'pos' : 'neg' }, t.side === 'buy' ? 'Buy ' : 'Sell '), t.symbol || short(t.mint), ' ', h('span', { class: 'st ' + t.status }, t.status)),
+      h('span', { class: 'num' }, t.our_sol ? sol(t.our_sol) + ' SOL' : '—'),
+      h('span', { class: 'b' }, ago(t.at) + (t.via && t.via !== 'copy' ? ' · ' + t.via : '') + (t.reason ? ' · ' + t.reason : '')),
+      h('span', { class: 'b num' }, (t.target_sol ? 'target ' + sol(t.target_sol) : '') + (t.slot_lag !== null && t.slot_lag !== undefined ? (t.slot_lag === 0 ? ' · same slot' : ' · +' + t.slot_lag + ' slot' + (t.slot_lag === 1 ? '' : 's')) : '') + (t.price_delta_pct !== null && t.price_delta_pct !== undefined ? ' · ' + pct(t.price_delta_pct, true) : ''))));
+  }
+}
+
+// ——— settings, theme, mode ———
+
+function renderMode() {
+  const p = $('modePill');
+  p.classList.toggle('demo', isDemo());
+  p.classList.toggle('live', !isDemo());
+  $('modeText').textContent = isDemo() ? 'Demo · sample data' : 'Live · ' + S.base.replace(/^https?:\/\//, '');
+  const b = clear($('demoBanner'));
+  b.classList.toggle('hidden', !isDemo());
+  if (isDemo()) b.append(h('span', null, 'Demo mode — sample orders, nothing is sent anywhere. Add an API key with “Copy orders · read” (and “write” to switch orders, “Account · read” for positions) to run your own copy trading here.'),
+    h('button', { class: 'btn', onclick: openSettings }, 'Add API key'));
+}
+
+function openSettings() {
+  const dlg = $('settingsDlg');
+  const base = h('input', { class: 'in mono', value: S.base, style: 'width:100%' });
+  const key = h('input', { class: 'in mono', type: 'password', value: S.key, placeholder: 'sk_…', autocomplete: 'off', spellcheck: 'false', style: 'width:100%' });
+  const remember = h('input', { type: 'checkbox', checked: !!localStorage.getItem(STORE.key) });
+  const show = h('input', { type: 'checkbox', onchange: (e) => { key.type = e.target.checked ? 'text' : 'password'; } });
+  const save = () => {
+    const b = base.value.trim().replace(/\/+$/, '');
+    if (!/^https?:\/\/[^\s/]+$/.test(b)) { toast('The API address looks wrong'); return; }
+    S.base = b;
+    if (b === defaultBase()) localStorage.removeItem(STORE.base); else localStorage.setItem(STORE.base, b);
+    S.key = key.value.trim();
+    sessionStorage.removeItem(STORE.key); localStorage.removeItem(STORE.key);
+    if (S.key) (remember.checked ? localStorage : sessionStorage).setItem(STORE.key, S.key);
+    dlg.close();
+    Object.assign(ST, { stats: null, orders: [], positions: null, positionsErr: null, myWallets: new Map(), sel: null, trades: null, tradesErr: null, err: null, pauseUntil: 0, tab: 'positions' });
+    renderMode();
+    render();
+    refresh(true);
+  };
+  clear(dlg).append(h('div', { class: 'dlg' },
+    h('h2', null, 'Settings'),
+    h('p', null, 'Create a key on Blizz: press API in the header → New key. Read-only cockpit: “Copy orders · read” and “Account · read”. To switch orders on and off, change sizes and delete: “Copy orders · write”.'),
+    h('label', { class: 'f' }, h('span', null, 'API key'), key),
+    h('label', { class: 'check' }, show, h('span', null, 'Show key')),
+    h('label', { class: 'check' }, remember, h('span', null, 'Remember on this device (otherwise only this tab)')),
+    h('label', { class: 'f' }, h('span', null, 'API address'), base),
+    h('p', { class: 'faint', style: 'font-size:12.5px' }, 'The key is sent only to this address, in the Authorization header. Production: https://blizz.id · dev: https://jizzus.xyz'),
+    h('div', { class: 'dlg-f' },
+      h('button', { class: 'btn danger', onclick: () => { key.value = ''; save(); } }, 'Forget key'),
+      h('button', { class: 'btn', onclick: () => dlg.close() }, 'Cancel'),
+      h('button', { class: 'btn primary', onclick: save }, 'Save'))));
+  dlg.showModal();
+}
+
+function setTheme(t) {
+  document.documentElement.dataset.theme = t;
+  localStorage.setItem(STORE.theme, t);
+  clear($('themeBtn')).append(icon(t === 'dark' ? 'sun' : 'moon'));
+}
+
+function renderPeriod() {
+  clear($('periodSeg')).append(h('div', { class: 'seg', role: 'group', 'aria-label': 'Period' }, PERIODS.map(([v, t]) =>
+    h('button', { class: ST.period === v ? 'on' : '', onclick: () => { ST.period = v; localStorage.setItem('blizz.cockpit.period', v); ST.stats = null; ST.trades = null; renderPeriod(); render(); refresh(true); } }, t))));
+}
+
+function init() {
+  if (!PERIODS.some(([v]) => v === ST.period)) ST.period = '1d';
+  setTheme(localStorage.getItem(STORE.theme) || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
+  $('themeBtn').addEventListener('click', () => setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'));
+  $('settingsBtn').addEventListener('click', openSettings);
+  $('refreshBtn').append(icon('refresh'));
+  $('refreshBtn').addEventListener('click', () => { ST.pauseUntil = 0; refresh(true); });
+  $('pauseAllBtn').addEventListener('click', () => setAll('paused'));
+  $('resumeAllBtn').addEventListener('click', () => setAll('active'));
+  const logo = icon('logo', 20);
+  logo.style.color = 'var(--gold)';
+  $('brand').append(logo, h('b', null, 'BLIZZ'), h('span', null, 'Copy Cockpit'));
+  renderPeriod();
+  renderMode();
+  render();
+  refresh(true);
+  // Every 15 s while the tab is visible; a hidden tab spends no requests.
+  setInterval(() => refresh(false), 15000);
+  setInterval(() => { if (ST.updatedAt) $('updated').textContent = 'updated ' + dur((Date.now() - ST.updatedAt) / 1000) + ' ago'; }, 1000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && Date.now() - ST.updatedAt > 15000) refresh(false); });
+}
+
+init();
+</script>
+</body>
+</html>

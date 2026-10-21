@@ -1,0 +1,13 @@
+{
+  "name": "blizz",
+  "description": "Blizz for AI agents: find and assess Solana wallets worth copying and run your Blizz copy trading",
+  "version": "1.0.0",
+  "author": {
+    "name": "Blizz"
+  },
+  "homepage": "https://blizz.id/ai",
+  "repository": "https://github.com/blizz-ai/blizz-skills",
+  "license": "MIT",
+  "keywords": ["blizz", "solana", "copy-trading", "wallet-analysis", "mcp"],
+  "skills": ["./skills/"]
+}

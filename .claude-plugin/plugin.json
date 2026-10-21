@@ -1,0 +1,15 @@
+{
+  "name": "blizz",
+  "version": "1.0.0",
+  "description": "Blizz for AI agents: find and assess Solana wallets, run copy and snipe orders, read their results — through the Blizz MCP server and skills",
+  "author": {
+    "name": "Blizz",
+    "url": "https://blizz.id"
+  },
+  "homepage": "https://blizz.id/ai",
+  "repository": "https://github.com/blizz-ai/blizz-skills",
+  "license": "MIT",
+  "keywords": ["blizz", "solana", "copy-trading", "wallet-analysis", "mcp"],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json"
+}
