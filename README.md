@@ -19,6 +19,10 @@ those functions do not exist in the API.
 
 Guide on the site: **https://blizz.id/ai**.
 
+> **Rollout.** The connector is live on the Blizz test environment, `https://jizzus.xyz/mcp`
+> (set `BLIZZ_MCP_URL` / `BLIZZ_API_BASE` to it). `https://blizz.id/mcp` goes live with the next
+> Blizz release.
+
 ## Connect
 
 ### Claude (claude.ai, Desktop, mobile)

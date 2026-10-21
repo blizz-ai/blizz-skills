@@ -95,7 +95,7 @@ one copy order and one snipe order per target at most.
 | `list_orders` | `kind`, `state?` active·paused | read |
 | `get_order` | `kind`, `target` | read |
 | `get_order_stats` | `kind`, `period?` 1h·3h·6h·12h·1d·3d·7d·14d·30d·all (1d) | read |
-| `list_order_trades` | `kind`, `target`, `period?`, `limit?` 1–500 (100) | read |
+| `list_order_trades` | `kind`, `target`, `period?`, `limit?` 1–500 (50 over MCP, 100 over REST) | read |
 | `create_copy_order` | `target`, `wallet`, `buy` (`amount_sol` required), `sell?`, `filters?`, `label?`, `state?` | **write** |
 | `create_snipe_order` | same for a snipe order | **write** |
 | `update_order` | `kind`, `target`, `patch` (any part of the order; nested blocks merge, arrays replace) | **write** |
