@@ -2,6 +2,8 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<!-- Nothing but this file and the Blizz API: no external code, fonts or images, no forms, and the key can only travel to Blizz. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; connect-src https://blizz.id https://jizzus.xyz; base-uri 'none'; form-action 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" href="data:,">
 <title>Blizz · Wallet Analyst</title>
@@ -230,19 +232,28 @@ dialog::backdrop { background: var(--overlay); }
 
 // ——— storage, settings, API ———
 
-const STORE = { key: 'blizz.demo.key', base: 'blizz.demo.base', theme: 'blizz.demo.theme' };
+const STORE = { theme: 'blizz.demo.theme' };
 
-/** API base: the site itself when this page is served by Blizz, else production. */
-function defaultBase() {
-  const h = location.hostname;
+/** Page settings that may have nowhere to live: Blizz serves the demos
+ *  sandboxed, and a sandboxed page has no storage at all. The API key never
+ *  goes there anyway. */
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* no storage here */ } },
+};
+// Earlier versions could keep the key in the browser — drop what they left.
+try { localStorage.removeItem('blizz.demo.key'); localStorage.removeItem('blizz.demo.base'); sessionStorage.removeItem('blizz.demo.key'); } catch (e) { /* no storage */ }
+
+/** API address: the site itself when Blizz serves this page, production
+ *  otherwise. It is not a setting: a key typed here goes to Blizz only. */
+function apiBase() {
+  const h = location.protocol === 'https:' ? location.hostname : '';
   const ours = (d) => h === d || h.endsWith('.' + d);
-  return ours('blizz.id') || ours('jizzus.xyz') ? location.origin : 'https://blizz.id';
+  return ours('blizz.id') || ours('jizzus.xyz') ? 'https://' + location.host : 'https://blizz.id';
 }
 
-const S = {
-  base: localStorage.getItem(STORE.base) || defaultBase(),
-  key: sessionStorage.getItem(STORE.key) || localStorage.getItem(STORE.key) || '',
-};
+// The key lives only in this page's memory: gone when the tab closes or reloads.
+const S = { base: apiBase(), key: '' };
 const isDemo = () => !S.key;
 
 class ApiError extends Error {
@@ -258,7 +269,8 @@ async function api(method, path, body) {
   if (body !== undefined) headers['Content-Type'] = 'application/json';
   let res;
   try {
-    res = await fetch(S.base.replace(/\/+$/, '') + '/api/v1' + path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
+    // No cookies, no referrer, no cache: the key is the only credential.
+    res = await fetch(S.base + '/api/v1' + path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body), credentials: 'omit', referrerPolicy: 'no-referrer', cache: 'no-store' });
   } catch (e) {
     throw new ApiError(0, 'network', 'network error');
   }
@@ -276,7 +288,7 @@ async function api(method, path, body) {
 function explain(e, need) {
   if (!(e instanceof ApiError)) return String(e && e.message || e);
   switch (e.status) {
-    case 0: return 'Could not reach ' + S.base + ' — check the API address in Settings (network or CORS).';
+    case 0: return 'Could not reach ' + S.base + ' — check your connection and try again.';
     case 401: return 'The API key is missing, wrong or revoked. Paste a valid key in Settings.';
     case 403: return 'This key has no access for that (' + e.description + ').' + (need ? ' Create a key with “' + need + '” on Blizz → API.' : '');
     case 429: return 'Rate limited: ' + e.description + '. Retry in ' + (e.retryAfter || 1) + ' s.';
@@ -978,6 +990,18 @@ async function openCopy(a) {
     return { body };
   };
 
+  /** Tips, priority fees and slippage the order carries — money too, so the summary names them. */
+  const money = (body) => {
+    const out = [];
+    for (const [side, o] of [['buy', body.buy || {}], ['sell', body.sell || {}]]) {
+      if (o.slippage_pct != null) out.push(side + ' slippage ' + o.slippage_pct + '%');
+      if (o.slippage_sol != null) out.push(side + ' slippage ' + o.slippage_sol + ' SOL');
+      if (o.tip_sol != null) out.push(side + ' tip ' + o.tip_sol + ' SOL');
+      if (o.priority_fee_sol != null) out.push(side + ' priority fee ' + o.priority_fee_sol + ' SOL');
+    }
+    return out;
+  };
+
   const update = () => {
     const b = build();
     clear(summary);
@@ -985,7 +1009,8 @@ async function openCopy(a) {
     const exits = b.body.filters.copy_sells ? 'copies its sells' : 'exits by your TP/SL only';
     summary.append('Copy ', h('b', { class: 'mono' }, short(W.addr)), ' from ', h('b', { class: 'mono' }, short(b.body.wallet)), ': up to ', h('b', { class: 'num' }, b.body.buy.amount_sol + ' SOL'),
       ' per buy, ', exits, (b.body.sell && b.body.sell.auto ? ', ' + b.body.sell.auto.map((r) => (r.type === 'tp' ? 'TP +' : 'SL −') + r.trigger_pct + '% → sell ' + r.size_pct + '%').join(', ') : ''),
-      b.body.filters.anti_pvp ? ', anti-PvP on' : '', ', starts ' + b.body.state + '.');
+      b.body.filters.anti_pvp ? ', anti-PvP on' : '', ', starts ' + b.body.state + '.',
+      money(b.body).length ? ' Also: ' + money(b.body).join(', ') + '.' : '');
     submit.disabled = isDemo();
   };
 
@@ -1059,18 +1084,12 @@ function renderMode() {
 
 function openSettings() {
   const dlg = $('settingsDlg');
-  const base = h('input', { class: 'in mono', value: S.base });
   const key = h('input', { class: 'in mono', type: 'password', value: S.key, placeholder: 'sk_…', autocomplete: 'off', spellcheck: 'false' });
-  const remember = h('input', { type: 'checkbox', checked: !!localStorage.getItem(STORE.key) });
   const show = h('input', { type: 'checkbox', onchange: (e) => { key.type = e.target.checked ? 'text' : 'password'; } });
   const save = () => {
-    const b = base.value.trim().replace(/\/+$/, '');
-    if (!/^https?:\/\/[^\s/]+$/.test(b)) { toast('The API address looks wrong'); return; }
-    S.base = b;
-    if (b === defaultBase()) localStorage.removeItem(STORE.base); else localStorage.setItem(STORE.base, b);
-    S.key = key.value.trim();
-    sessionStorage.removeItem(STORE.key); localStorage.removeItem(STORE.key);
-    if (S.key) (remember.checked ? localStorage : sessionStorage).setItem(STORE.key, S.key);
+    const k = key.value.trim();
+    if (k && !/^sk_[A-Za-z0-9]{48}$/.test(k)) { toast('That is not a Blizz API key: it starts with sk_ and has 48 more letters and digits'); return; }
+    S.key = k;
     cache.clear();
     dlg.close();
     renderMode();
@@ -1082,9 +1101,7 @@ function openSettings() {
     h('p', null, 'Create a key on Blizz: press API in the header → New key. For this page pick “Wallet data · read”; to create orders from it also “Copy orders · write” and “Account · read”.'),
     h('label', { class: 'f' }, h('span', null, 'API key'), key),
     h('label', { class: 'check' }, show, h('span', null, 'Show key')),
-    h('label', { class: 'check' }, remember, h('span', null, 'Remember on this device (otherwise only this tab)')),
-    h('label', { class: 'f' }, h('span', null, 'API address'), base),
-    h('p', { class: 'faint', style: 'font-size:12.5px' }, 'The key is sent only to this address, in the Authorization header. Production: https://blizz.id · dev: https://jizzus.xyz'),
+    h('p', { class: 'faint', style: 'font-size:12.5px' }, 'The key stays in this tab’s memory until you close or reload it, and goes only to ' + S.base + ', in the Authorization header. Never paste it into a chat or a page you do not trust.'),
     h('div', { class: 'dlg-f' },
       h('button', { class: 'btn danger', onclick: () => { key.value = ''; save(); } }, 'Forget key'),
       h('button', { class: 'btn', onclick: () => dlg.close() }, 'Cancel'),
@@ -1094,12 +1111,12 @@ function openSettings() {
 
 function setTheme(t) {
   document.documentElement.dataset.theme = t;
-  localStorage.setItem(STORE.theme, t);
+  store.set(STORE.theme, t);
   clear($('themeBtn')).append(icon(t === 'dark' ? 'sun' : 'moon'));
 }
 
 function init() {
-  setTheme(localStorage.getItem(STORE.theme) || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
+  setTheme(store.get(STORE.theme) || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
   $('themeBtn').addEventListener('click', () => setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'));
   $('settingsBtn').addEventListener('click', openSettings);
   const brand = $('brand');

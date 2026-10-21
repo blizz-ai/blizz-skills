@@ -1,6 +1,6 @@
 {
   "name": "blizz",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Blizz for AI agents: find and assess Solana wallets, run copy and snipe orders, read their results — through the Blizz MCP server and skills",
   "author": {
     "name": "Blizz",

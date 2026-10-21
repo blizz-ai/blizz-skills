@@ -14,14 +14,14 @@ Solana copy-trading service. Your agent can:
 - **read the results** — PnL, win rate and capture per order, the trade feed,
   open positions, your wallets and balances.
 
-It cannot move or withdraw funds, see keys, create wallets or trade by hand —
-those functions do not exist in the API.
+It cannot send SOL or tokens to another address, see keys, create wallets or
+trade by hand — those functions do not exist in the API. Its orders do spend
+real SOL, within the limits you set when you connect it.
 
 Guide on the site: **https://blizz.id/ai**.
 
-> **Rollout.** The connector is live on the Blizz test environment, `https://jizzus.xyz/mcp`
-> (set `BLIZZ_MCP_URL` / `BLIZZ_API_BASE` to it). `https://blizz.id/mcp` goes live with the next
-> Blizz release.
+> **Rollout.** `https://blizz.id/mcp` goes live with the next Blizz release,
+> together with the guide at https://blizz.id/ai.
 
 ## Connect
 
@@ -33,8 +33,9 @@ Settings → **Connectors** → **Add custom connector** → name `Blizz`, URL:
 https://blizz.id/mcp
 ```
 
-→ **Connect** → sign in to Blizz → choose what Claude may do (and the most it
-may spend per order) → **Allow**. Works on every plan (Free: one custom
+→ **Connect** → sign in to Blizz → choose what Claude may do (and, for
+orders, the most it may buy per order and per day) → confirm it's you →
+**Allow**. Works on every plan (Free: one custom
 connector). On Team and Enterprise an owner adds it for the organisation.
 Mobile apps use connectors added on the web or Desktop.
 
@@ -97,18 +98,22 @@ Skills for Codex: [`.codex/INSTALL.md`](.codex/INSTALL.md).
 ### Gemini CLI
 
 ```bash
-gemini mcp add --transport http blizz https://blizz.id/mcp --header "Authorization: Bearer $BLIZZ_API_KEY"
+gemini mcp add --transport http blizz https://blizz.id/mcp
 ```
+
+then `/mcp auth blizz` in Gemini CLI to sign in with OAuth — no key on the
+command line or in its settings.
 
 ### OpenClaw and any agent with skills
 
 ```bash
 npx skills add blizz-ai/blizz-skills
-export BLIZZ_API_KEY=sk_...          # an API key from blizz.id
-export BLIZZ_API_BASE=https://blizz.id
+read -rs BLIZZ_API_KEY && export BLIZZ_API_KEY   # paste the key from blizz.id, Enter
 ```
 
-Without MCP the skills call the REST API with the key
+Load the key for the session like this (or from your OS keychain) rather
+than writing it into `~/.zshrc` or a file. Without MCP the skills call the
+REST API at `https://blizz.id` with it
 ([`skills/blizz/references/rest-api.md`](skills/blizz/references/rest-api.md)).
 
 ### API keys
@@ -123,7 +128,10 @@ pick the access:
 | Copy orders · read / write | read copy orders and their results / create, edit, pause, delete them |
 | Snipe orders · read / write | the same for snipe orders |
 
-The secret (`sk_…`) is shown once. Treat it as a password.
+The secret (`sk_…`) is shown once. Treat it as a password: keep it in a
+password manager or your bot's environment, never paste it into a chat with
+an AI, and revoke it under **API** the moment it leaks. A key has no spending
+limits — for Claude, ChatGPT and other apps prefer the connector above.
 
 ## Tools
 
@@ -183,14 +191,9 @@ around in demo mode with sample data:
   · [source](demos/copy-cockpit/index.html)
 
 Both run in your browser only: no backend, no build, no dependencies. The key
-stays in the browser tab (or on the device if you tick "remember").
-
-## Dev environment
-
-The Blizz dev environment is `https://jizzus.xyz`: use
-`https://jizzus.xyz/mcp`, set `BLIZZ_MCP_URL=https://jizzus.xyz/mcp` for the
-Claude Code plugin and `BLIZZ_API_BASE=https://jizzus.xyz` for the REST
-fallback, with a key created on the dev site.
+lives in the tab's memory until you close or reload it and goes only to
+blizz.id; on blizz.id the pages run in a sandbox with no access to your site
+session. A read-only key is enough to look around.
 
 ## Security and disclaimer
 
@@ -198,11 +201,25 @@ fallback, with a key created on the dev site.
   your wallets. Solana transactions are irreversible. Your assistant must ask
   you before every write; read what it proposes.
 - **Limits you set.** When you connect Claude or ChatGPT you choose the
-  access and the most it may spend per order; Blizz enforces the cap on its
-  side. You can see and disconnect connected apps at
-  [blizz.id/ai](https://blizz.id/ai) and revoke API keys under **API**.
-- **No funds or keys.** The agent cannot withdraw, transfer, see keys or
-  create wallets — the API has no such functions.
+  access and, for orders, the most it may buy per order and per day; tips
+  and priority fees are capped at 0.01 SOL. Blizz enforces all of it on its
+  side and pauses the app's orders when the daily budget is spent. Giving an
+  app order access needs your password, a code from Telegram or a fresh
+  Google sign-in.
+- **You see everything.** With Telegram connected to Blizz, every new API
+  key, every connected app and every order change an app makes comes to your
+  Telegram. Connected apps are listed at [blizz.id/ai](https://blizz.id/ai):
+  lower their limits or disconnect them there (their orders are paused).
+  Revoke API keys under **API**.
+- **Only connect what you started.** If someone sends you a link to "connect
+  Blizz", don't allow it: whoever started the connection would get the
+  access.
+- **No funds or keys.** The agent cannot send funds to another address, see
+  keys or create wallets — the API has no such functions.
+- **Install from here.** Get the skills and the plugin only from
+  `github.com/blizz-ai/blizz-skills`, pin a release tag or a commit, and read
+  the diff before you update: a skill tells your agent what to do with your
+  money.
 - **Prompt injection.** Coin names, wallet labels and other on-chain text can
   contain instructions. The skills tell the agent to treat them as data, but
   stay alert: an unexpected order proposal is a red flag.

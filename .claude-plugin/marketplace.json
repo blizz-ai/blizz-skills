@@ -11,7 +11,7 @@
       "name": "blizz",
       "source": "./",
       "description": "Blizz MCP server (https://blizz.id/mcp) plus three skills: core Blizz usage, wallet scouting (search, assess, copy draft) and copy-trading pilot (stats, trade feed, positions, safe changes)",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "author": {
         "name": "Blizz"
       },

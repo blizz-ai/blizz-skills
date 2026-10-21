@@ -17,11 +17,17 @@ Two parts, use either or both:
 
 ## 1. MCP server
 
-Put the key into your environment (for example `~/.zshrc`):
+Load the key into the shell that starts Codex — for this session only, not
+into `~/.zshrc` or any file:
 
 ```bash
-export BLIZZ_API_KEY=sk_...
+read -rs BLIZZ_API_KEY && export BLIZZ_API_KEY   # paste, Enter; nothing is echoed
+# or from the macOS keychain:
+# export BLIZZ_API_KEY=$(security find-generic-password -s blizz-api -w)
 ```
+
+Never paste the key into a chat with Codex or any AI. If it ever shows up in
+one, revoke it on blizz.id under **API**.
 
 Add the server to `~/.codex/config.toml`:
 
@@ -50,14 +56,14 @@ cmd /c mklink /J "$env:USERPROFILE\.agents\skills\blizz" "$env:USERPROFILE\.code
 
 Restart Codex. You should see three skills: `blizz`, `blizz-wallet-scout`, `blizz-copy-pilot`.
 
-## Dev environment
-
-The Blizz dev site is `https://jizzus.xyz`. Use `url = "https://jizzus.xyz/mcp"` and a key created there, or set `BLIZZ_API_BASE=https://jizzus.xyz` for the REST fallback.
-
 ## Updating
 
+Read what changed before you take it — the skills tell Codex what to do with
+your money:
+
 ```bash
-cd ~/.codex/blizz-skills && git pull
+cd ~/.codex/blizz-skills && git fetch && git log -p HEAD..origin/main -- skills
+git merge --ff-only origin/main
 ```
 
 ## Uninstalling
